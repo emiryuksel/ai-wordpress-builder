@@ -1,0 +1,74 @@
+services:
+  db:
+    image: mysql:8.0
+    container_name: {{PROJECT_ID}}_db
+    restart: unless-stopped
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_DATABASE: wordpress
+      MYSQL_USER: wordpress
+      MYSQL_PASSWORD: {{DB_PASSWORD}}
+      MYSQL_ROOT_PASSWORD: {{DB_ROOT_PASSWORD}}
+    volumes:
+      - {{PROJECT_ID}}_db_data:/var/lib/mysql
+    networks:
+      - {{PROJECT_ID}}_network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p{{DB_ROOT_PASSWORD}}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  wordpress:
+    image: wordpress:latest
+    container_name: {{PROJECT_ID}}_wordpress
+    restart: unless-stopped
+    ports:
+      - "{{HOST_PORT}}:80"
+    environment:
+      WORDPRESS_DB_HOST: db:3306
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: {{DB_PASSWORD}}
+      WORDPRESS_DB_NAME: wordpress
+    volumes:
+      - {{PROJECT_ID}}_wp_data:/var/www/html
+      - ./wp-init:/wp-init:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - {{PROJECT_ID}}_network
+
+  wpcli:
+    image: wordpress:cli
+    user: "33:33"
+    environment:
+      WORDPRESS_DB_HOST: db:3306
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: {{DB_PASSWORD}}
+      WORDPRESS_DB_NAME: wordpress
+    volumes:
+      - {{PROJECT_ID}}_wp_data:/var/www/html
+      - ./wp-init:/wp-init:ro
+      - ./product-images:/product-images
+      - ./blog-images:/blog-images
+    depends_on:
+      db:
+        condition: service_healthy
+      wordpress:
+        condition: service_started
+    networks:
+      - {{PROJECT_ID}}_network
+    profiles:
+      - tools
+
+volumes:
+  {{PROJECT_ID}}_wp_data:
+    name: {{PROJECT_ID}}_wp_data
+  {{PROJECT_ID}}_db_data:
+    name: {{PROJECT_ID}}_db_data
+
+networks:
+  {{PROJECT_ID}}_network:
+    name: {{PROJECT_ID}}_network
