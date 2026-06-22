@@ -15,7 +15,7 @@ Bu proje Next.js uygulamasıdır ve her site için **ayrı WordPress Docker stac
 2. **+ New Resource** → **Application**
 3. Kaynak: Git repository → bu repo
 4. Build pack: **Dockerfile** (kök dizindeki `Dockerfile`)
-5. Port: **3000**
+5. Port: **3100** (set the same value in Coolify **and** `PORT=3100` in env vars)
 
 ## 2. Ortam değişkenleri
 
@@ -65,7 +65,7 @@ Her site `8001–8999` aralığında bir port kullanır. Önizleme ve "Siteyi g�
 
 ```bash
 # UFW örneği
-sudo ufw allow 3000/tcp
+sudo ufw allow 3100/tcp
 sudo ufw allow 8001:8999/tcp
 ```
 
