@@ -53,6 +53,7 @@ services:
       - ./wp-init:/wp-init:ro
       - ./product-images:/product-images
       - ./blog-images:/blog-images
+      - ./corporate-images:/corporate-images
     depends_on:
       db:
         condition: service_healthy

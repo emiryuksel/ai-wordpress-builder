@@ -6,6 +6,7 @@ import { z } from "zod";
 import { execWpCli, execWpCliSh } from "@/lib/docker-manager";
 import { generateBlogFeaturedImage } from "@/lib/gemini-image";
 import { getGeminiClient } from "@/lib/gemini-client";
+import { isCorporateProject, isEcommerceProject, CORPORATE_ONLY_MODE } from "@/lib/site-type";
 
 const RUNTIME_ROOT = path.join(process.cwd(), "data", "runtime");
 const BLOG_MODEL = "gemini-2.5-flash-lite";
@@ -84,28 +85,22 @@ const blogContentGeminiSchema: ResponseSchema = {
   required: ["tagline", "categories", "posts"],
 };
 
-const ECOMMERCE_KEYWORDS = /e-?ticaret|e-?commerce|shop|mağaza|woocommerce/i;
-
 export function isBlogProject(input: {
   siteType: string;
   suggestedPlugins: string[];
   prompt?: string;
 }): boolean {
-  const hasWoo = input.suggestedPlugins.some(
-    (plugin) => plugin.trim().toLowerCase() === "woocommerce",
-  );
+  if (CORPORATE_ONLY_MODE) {
+    return false;
+  }
 
-  if (hasWoo) {
+  if (isEcommerceProject(input) || isCorporateProject(input)) {
     return false;
   }
 
   const combined = `${input.siteType} ${input.prompt ?? ""}`;
 
-  if (ECOMMERCE_KEYWORDS.test(combined)) {
-    return false;
-  }
-
-  return /blog|günlük|yazı|dergi|haber/i.test(combined) || !hasWoo;
+  return /blog|günlük|yazı|dergi|haber/i.test(combined) || true;
 }
 
 function slugify(value: string): string {

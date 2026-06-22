@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-import { execWpCli, execWpCliSh } from "@/lib/docker-manager";
+import { execWpCli, execWpCliSh, runWooCommerceSetup } from "@/lib/docker-manager";
 import { generateProductImage } from "@/lib/gemini-image";
 import type { ChatAction } from "@/lib/intent-schema";
 import { inferProductCategory } from "@/lib/product-images";
@@ -132,6 +132,43 @@ async function runPhp(projectId: string, php: string): Promise<void> {
   await execWpCli(projectId, ["eval", php]);
 }
 
+/** Aynı menünün primary + secondary konumunda gösterilmesini engeller. */
+export async function fixAstraHeaderMenuDuplication(
+  projectId: string,
+): Promise<void> {
+  const php = `
+$locations = get_nav_menu_locations();
+if (isset($locations['secondary_menu'])) {
+  unset($locations['secondary_menu']);
+  set_nav_menu_locations($locations);
+}
+
+$primary_menu_id = isset($locations['primary']) ? (int) $locations['primary'] : 0;
+if ($primary_menu_id > 0) {
+  $items = wp_get_nav_menu_items($primary_menu_id);
+  if (is_array($items)) {
+    $seen = array();
+    foreach ($items as $item) {
+      if (!is_object($item) || !isset($item->title, $item->ID)) {
+        continue;
+      }
+      $key = strtolower(trim(wp_strip_all_tags($item->title)));
+      if ($key === '') {
+        continue;
+      }
+      if (isset($seen[$key])) {
+        wp_delete_post((int) $item->ID, true);
+        continue;
+      }
+      $seen[$key] = true;
+    }
+  }
+}
+`;
+
+  await runPhp(projectId, php);
+}
+
 async function updateAstraSetting(
   projectId: string,
   optionKey: string,
@@ -197,6 +234,8 @@ export async function applyAstraBlogChrome(
   for (const [key, value] of Object.entries(settings)) {
     await updateAstraSetting(projectId, key, value);
   }
+
+  await fixAstraHeaderMenuDuplication(projectId);
 
   await setMarkedCustomCss(
     projectId,
@@ -276,6 +315,13 @@ function buildAstraBlogChromeCss(primary: string): string {
 .main-header-menu a:hover,
 .ast-builder-menu .menu-item > a:hover {
   color: ${primary} !important;
+}
+.ast-builder-menu-2,
+#ast-desktop-header .ast-builder-menu-2,
+.site-header-primary-section-right .ast-builder-menu-2,
+.ast-header-menu-2,
+.secondary-menu-bar-navigation {
+  display: none !important;
 }
 .site-footer,
 .ast-footer-overlay,
@@ -736,7 +782,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   "ev-yasam": "Ev ve Yaşam",
 };
 
-async function isWooCommerceActive(projectId: string): Promise<boolean> {
+export async function isWooCommerceActive(projectId: string): Promise<boolean> {
   try {
     // is-active başarılı olunca stdout boş döner; exit code 0 = aktif
     await execWpCli(projectId, ["plugin", "is-active", "woocommerce"]);
@@ -963,6 +1009,73 @@ export async function enrichEcommerceProductImages(
       }
     },
   );
+
+  await flushCaches(projectId);
+}
+
+/** WooCommerce kurulmamış veya ürünleri eksik mağazayı onarır */
+async function ensureWooCommerceInstalled(projectId: string): Promise<void> {
+  if (await isWooCommerceActive(projectId)) {
+    return;
+  }
+
+  try {
+    await execWpCli(projectId, [
+      "plugin",
+      "install",
+      "woocommerce",
+      "--activate",
+      "--force",
+    ]);
+    if (await isWooCommerceActive(projectId)) {
+      return;
+    }
+  } catch {
+    // Bozuk veya yarım kurulum — silip yeniden dene.
+  }
+
+  try {
+    await execWpCli(projectId, ["plugin", "delete", "woocommerce", "--deactivate"]);
+  } catch {
+    // Eklenti zaten yoksa sorun değil.
+  }
+
+  await execWpCli(projectId, [
+    "plugin",
+    "install",
+    "woocommerce",
+    "--activate",
+  ]);
+
+  if (!(await isWooCommerceActive(projectId))) {
+    throw new Error("WooCommerce etkinleştirilemedi.");
+  }
+}
+
+export async function repairEcommerceSite(
+  projectId: string,
+  userPrompt = "",
+  primaryColor = "#2563eb",
+): Promise<void> {
+  await ensureWooCommerceInstalled(projectId);
+
+  await runWooCommerceSetup(projectId);
+
+  if (primaryColor) {
+    try {
+      await applyChatAction(projectId, {
+        actionType: "change_color",
+        target: "primary",
+        value: primaryColor,
+      });
+    } catch {
+      // Storefront dışı temalarda sorun değil.
+    }
+  }
+
+  if (userPrompt) {
+    await enrichEcommerceProductImages(projectId, userPrompt);
+  }
 
   await flushCaches(projectId);
 }

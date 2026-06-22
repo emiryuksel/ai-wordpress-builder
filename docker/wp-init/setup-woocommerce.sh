@@ -90,7 +90,6 @@ setup_storefront_chrome() {
     fi
 
     wp menu location assign "$MENU_ID" primary --path="$WP_PATH" 2>/dev/null || true
-    wp menu location assign "$MENU_ID" secondary_menu --path="$WP_PATH" 2>/dev/null || true
     wp menu location assign "$MENU_ID" mobile_menu --path="$WP_PATH" 2>/dev/null || true
     echo "[wp-init] Ana menü atandı."
   fi
@@ -241,13 +240,8 @@ PRODUCT_COUNT=$(wp post list --post_type=product --format=count --path="$WP_PATH
 if [ "$PRODUCT_COUNT" -lt 3 ]; then
   echo "[wp-init] Örnek ürünler oluşturuluyor..."
   create_product "Kablosuz Bluetooth Kulaklık" "899.90" "$CAT_ELEC" "Gürültü engelleme özellikli kablosuz kulaklık. 24 saat pil ömrü." "749.90"
-  create_product "Akıllı Saat Pro" "2499.00" "$CAT_ELEC" "Adım sayar, nabız ölçer ve bildirim desteği." ""
   create_product "Deri Sırt Çantası" "749.50" "$CAT_FASHION" "Günlük kullanım için şık ve dayanıklı deri çanta." "599.00"
-  create_product "Organik Pamuk Tişört" "299.00" "$CAT_FASHION" "%100 organik pamuk, unisex kesim." ""
-  create_product "Koşu Ayakkabısı" "1199.00" "$CAT_FASHION" "Hafif taban, nefes alan mesh üst yüzey." "999.00"
   create_product "French Press Kahve Demliği" "459.00" "$CAT_HOME" "Cam gövde, paslanmaz çelik filtre." ""
-  create_product "Aromaterapi Mum Seti" "189.90" "$CAT_HOME" "3'lü lavanta ve vanilya kokulu mum seti." ""
-  create_product "Yoga Matı" "349.00" "$CAT_HOME" "Kaymaz yüzey, taşıma askısı dahil." ""
 else
   echo "[wp-init] Mevcut ürünler korunuyor (görseller AI ile güncellenecek)."
 fi

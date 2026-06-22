@@ -114,7 +114,7 @@ install_plugin() {
   max_attempts=3
 
   if [ "$plugin" = "woocommerce" ]; then
-    max_attempts=4
+    max_attempts=6
   fi
 
   if wp plugin is-active "$plugin" --path=/var/www/html 2>/dev/null; then
@@ -135,11 +135,19 @@ install_plugin() {
       return 0
     fi
 
+    if [ "$plugin" = "woocommerce" ]; then
+      wp plugin delete "$plugin" --deactivate --path=/var/www/html 2>/dev/null || true
+    fi
+
     if wp plugin is-active "$plugin" --path=/var/www/html 2>/dev/null; then
       return 0
     fi
 
-    sleep 5
+    if [ "$plugin" = "woocommerce" ]; then
+      sleep 8
+    else
+      sleep 5
+    fi
   done
 
   echo "[wp-init] UYARI: $plugin kurulamadı, kurulum diğer adımlarla devam ediyor."
@@ -152,23 +160,50 @@ IS_WOOCOMMERCE=0
 if echo ",${SUGGESTED_PLUGINS}," | grep -q ",woocommerce,"; then
   IS_WOOCOMMERCE=1
 fi
+if echo "$SITE_TYPE" | grep -qiE 'ticaret|commerce|shop|mağaza|magaza'; then
+  IS_WOOCOMMERCE=1
+fi
+
+IS_CORPORATE=0
+if echo "$SITE_TYPE" | grep -qiE 'kurumsal|corporate|business|şirket|sirket|firma|hizmet|agency|consulting|danışmanlık|danismanlik|inşaat|insaat|klinik|avukat|holding|mühendislik|muhendislik|yazılım|yazilim|b2b'; then
+  IS_CORPORATE=1
+fi
 
 if [ "$IS_WOOCOMMERCE" -eq 1 ]; then
   echo "[wp-init] WooCommerce kuruluyor..."
-  install_plugin "woocommerce"
-else
-  echo "[wp-init] Tema kuruluyor: $SUGGESTED_THEME"
-  install_theme "$SUGGESTED_THEME" "$FALLBACK_THEME"
-fi
+  woo_attempt=0
+  while [ "$woo_attempt" -lt 6 ]; do
+    if wp plugin is-active woocommerce --path=/var/www/html 2>/dev/null; then
+      break
+    fi
+    install_plugin "woocommerce"
+    woo_attempt=$((woo_attempt + 1))
+    if wp plugin is-active woocommerce --path=/var/www/html 2>/dev/null; then
+      break
+    fi
+    echo "[wp-init] WooCommerce henüz aktif değil ($woo_attempt/6)..."
+    sleep 8
+  done
 
-if wp plugin is-active woocommerce --path=/var/www/html 2>/dev/null; then
+  if ! wp plugin is-active woocommerce --path=/var/www/html 2>/dev/null; then
+    echo "[wp-init] HATA: WooCommerce etkinleştirilemedi."
+    exit 1
+  fi
+
   echo "[wp-init] E-ticaret mağaza içeriği hazırlanıyor..."
   sh /wp-init/setup-woocommerce.sh
   if wp theme is-installed storefront --path=/var/www/html 2>/dev/null; then
     wp theme activate storefront --path=/var/www/html 2>/dev/null || true
     echo "[wp-init] E-ticaret için Storefront teması doğrulandı."
   fi
+elif [ "$IS_CORPORATE" -eq 1 ]; then
+  echo "[wp-init] Tema kuruluyor: $SUGGESTED_THEME"
+  install_theme "$SUGGESTED_THEME" "$FALLBACK_THEME"
+  echo "[wp-init] Kurumsal site iskeleti hazırlanıyor..."
+  sh /wp-init/setup-corporate.sh
 else
+  echo "[wp-init] Tema kuruluyor: $SUGGESTED_THEME"
+  install_theme "$SUGGESTED_THEME" "$FALLBACK_THEME"
   echo "[wp-init] Blog sitesi içeriği hazırlanıyor..."
   sh /wp-init/setup-blog.sh
 fi

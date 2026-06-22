@@ -8,8 +8,17 @@ import {
   runProjectSetup,
   type ProjectRuntimeConfig,
 } from "@/lib/docker-manager";
+import {
+  applyPendingCorporateBrand,
+  isCorporateProject,
+  repairCorporateSite,
+  runCorporateImageEnrichment,
+  setupCorporateContent,
+} from "@/lib/corporate-content";
 import { getProject, updateProject } from "@/lib/project-store";
-import { applyChatAction, applyAstraBlogChrome, enrichEcommerceProductImages } from "@/lib/wp-cli";
+import { isEcommerceProject } from "@/lib/site-type";
+import { persistWordPressCredentials } from "@/lib/wordpress-access";
+import { applyChatAction, applyAstraBlogChrome, enrichEcommerceProductImages, isWooCommerceActive, repairEcommerceSite } from "@/lib/wp-cli";
 import {
   ensureMissingBlogAiImages,
   enrichBlogAiImages,
@@ -42,14 +51,6 @@ async function composeFileExists(projectId: string): Promise<boolean> {
   } catch {
     return false;
   }
-}
-
-function isEcommerceProject(project: {
-  suggestedPlugins: string[];
-  siteType: string;
-  prompt?: string;
-}): boolean {
-  return !isBlogProject(project);
 }
 
 function projectToRuntimeConfig(project: {
@@ -116,6 +117,11 @@ async function enrichProjectInBackground(
         projectId,
         project.suggestedPrimaryColor || "#2563eb",
       );
+    } else if (isCorporateProject(project)) {
+      await applyAstraBlogChrome(
+        projectId,
+        project.suggestedPrimaryColor || "#1e40af",
+      );
     } else if (isEcommerceProject(project)) {
       if (project.suggestedPrimaryColor) {
         try {
@@ -173,6 +179,16 @@ export async function completeProjectSetup(
     await updateProject(projectId, { status: "installing" });
     await runProjectSetup(projectId);
 
+    if (isEcommerceProject(project)) {
+      if (!(await isWooCommerceActive(projectId))) {
+        await repairEcommerceSite(
+          projectId,
+          project.prompt,
+          project.suggestedPrimaryColor || "#2563eb",
+        );
+      }
+    }
+
     if (isBlogProject(project)) {
       await setupBlogContent(projectId, project.prompt, project.siteTitle);
       try {
@@ -185,6 +201,32 @@ export async function completeProjectSetup(
       } catch (chromeError) {
         console.warn(`[provisioning] Blog kurulum (${projectId}):`, chromeError);
       }
+    } else if (isCorporateProject(project)) {
+      await setupCorporateContent(
+        projectId,
+        project.prompt,
+        project.siteTitle,
+        project.suggestedPrimaryColor || "#1e40af",
+      );
+      try {
+        await applyAstraBlogChrome(
+          projectId,
+          project.suggestedPrimaryColor || "#1e40af",
+        );
+      } catch (corpError) {
+        console.warn(`[provisioning] Kurumsal kurulum (${projectId}):`, corpError);
+      }
+      try {
+        await runCorporateImageEnrichment(projectId, project.prompt);
+      } catch (imageError) {
+        console.warn(`[provisioning] Kurumsal görseller (${projectId}):`, imageError);
+        throw imageError;
+      }
+      try {
+        await applyPendingCorporateBrand(projectId);
+      } catch (brandError) {
+        console.warn(`[provisioning] Bekleyen marka (${projectId}):`, brandError);
+      }
     } else if (isEcommerceProject(project)) {
       try {
         await enrichEcommerceProductImages(projectId, project.prompt);
@@ -193,12 +235,57 @@ export async function completeProjectSetup(
       }
     }
 
+    await persistWordPressCredentials(projectId, project.siteUrl);
     await updateProject(projectId, { status: "ready", error: undefined });
 
     void enrichProjectInBackground(projectId, project);
   } catch (error) {
     if (await isWordPressInstalled(projectId)) {
       const recovered = await getProject(projectId);
+      if (recovered && isCorporateProject(recovered)) {
+        try {
+          await repairCorporateSite(
+            projectId,
+            recovered.suggestedPrimaryColor || "#1e40af",
+            recovered.prompt,
+            recovered.siteTitle,
+          );
+          try {
+            await applyPendingCorporateBrand(projectId);
+          } catch (brandError) {
+            console.warn(`[provisioning] Bekleyen marka (${projectId}):`, brandError);
+          }
+          await updateProject(projectId, { status: "ready", error: undefined });
+          void enrichProjectInBackground(projectId, recovered);
+          return;
+        } catch (repairError) {
+          console.warn(`[provisioning] Kurumsal onarım (${projectId}):`, repairError);
+          await updateProject(projectId, {
+            status: "error",
+            error: formatProvisioningError(repairError),
+          });
+          return;
+        }
+      }
+      if (recovered && isEcommerceProject(recovered)) {
+        try {
+          await repairEcommerceSite(
+            projectId,
+            recovered.prompt,
+            recovered.suggestedPrimaryColor || "#2563eb",
+          );
+          await updateProject(projectId, { status: "ready", error: undefined });
+          void enrichProjectInBackground(projectId, recovered);
+          return;
+        } catch (repairError) {
+          console.warn(`[provisioning] Mağaza onarımı (${projectId}):`, repairError);
+          await updateProject(projectId, {
+            status: "error",
+            error: formatProvisioningError(repairError),
+          });
+          return;
+        }
+      }
       if (recovered && isBlogProject(recovered)) {
         try {
           await setupBlogContent(
@@ -237,7 +324,11 @@ export async function startFullProvisioning(
   provisioningInProgress.add(projectId);
 
   try {
-    await provisionProject(projectId, config);
+    const result = await provisionProject(projectId, config);
+    await updateProject(projectId, {
+      wpAdminUser: result.adminUser,
+      wpAdminPassword: result.adminPassword,
+    });
     await completeProjectSetup(projectId);
   } catch (error) {
     await updateProject(projectId, {
@@ -295,6 +386,7 @@ export function getStatusMessage(
   const elapsed =
     elapsedSeconds > 0 ? ` (${Math.floor(elapsedSeconds)} sn)` : "";
   const isBlog = isBlogProject({ siteType, suggestedPlugins, prompt });
+  const isCorporate = isCorporateProject({ siteType, suggestedPlugins, prompt });
 
   switch (status) {
     case "provisioning":
@@ -302,6 +394,9 @@ export function getStatusMessage(
     case "installing":
       if (isBlog) {
         return `Blog kuruluyor: yazılar ve AI görseller üretiliyor${elapsed}...`;
+      }
+      if (isCorporate) {
+        return `Siteniz kuruluyor: hero ve diğer AI görseller üretiliyor${elapsed}...`;
       }
       return `Mağaza kuruluyor: ürünler ve AI görseller hazırlanıyor${elapsed}...`;
     case "ready":

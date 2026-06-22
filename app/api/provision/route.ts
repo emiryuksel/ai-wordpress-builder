@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
 
+import { getAuthContext, requireSessionUser } from "@/lib/auth";
 import { findFreePort } from "@/lib/docker-manager";
 import { parseAndSanitizeProvisionIntent } from "@/lib/gemini-client";
-import { createProject } from "@/lib/project-store";
+import { buildWordPressSiteUrl } from "@/lib/public-url";
+import { canUserCreateProject, getProjectLimit, getProjectLimitForUser } from "@/lib/plans";
+import { countProjectsByUserId, createProject } from "@/lib/project-store";
 import { startFullProvisioning } from "@/lib/provisioning";
 
 export const runtime = "nodejs";
@@ -11,6 +14,24 @@ export const maxDuration = 300;
 
 export async function POST(request: Request) {
   try {
+    const user = await requireSessionUser();
+    const projectCount = await countProjectsByUserId(user.id);
+    const projectLimit = getProjectLimitForUser(user);
+    const unlimited = projectLimit === null;
+
+    if (!canUserCreateProject(user, projectCount)) {
+      const limit = projectLimit ?? getProjectLimit(user.plan);
+      return NextResponse.json(
+        {
+          error: `Site limitine ulaştınız (${limit}). Ücretsiz planda en fazla ${getProjectLimit("free")} site oluşturabilirsiniz.`,
+          projectCount,
+          projectLimit: limit,
+          limitReached: true,
+        },
+        { status: 403 },
+      );
+    }
+
     const body = (await request.json()) as { prompt?: string };
     const prompt = body.prompt?.trim();
 
@@ -24,10 +45,11 @@ export async function POST(request: Request) {
     const intent = await parseAndSanitizeProvisionIntent(prompt);
     const projectId = uuidv4();
     const hostPort = await findFreePort();
-    const siteUrl = `http://localhost:${hostPort}`;
+    const siteUrl = buildWordPressSiteUrl(hostPort);
 
     const project = await createProject({
       id: projectId,
+      userId: user.id,
       prompt,
       siteType: intent.siteType,
       siteTitle: intent.siteTitle,
@@ -48,6 +70,8 @@ export async function POST(request: Request) {
       userPrompt: prompt,
     });
 
+    const context = await getAuthContext();
+
     return NextResponse.json({
       projectId: project.id,
       hostPort: project.hostPort,
@@ -55,8 +79,18 @@ export async function POST(request: Request) {
       status: project.status,
       siteType: project.siteType,
       siteTitle: project.siteTitle,
+      projectCount: context?.projectCount ?? projectCount + 1,
+      projectLimit: context?.projectLimit ?? projectLimit ?? 0,
+      unlimited: context?.unlimited ?? unlimited,
     });
   } catch (error) {
+    if (error instanceof Error && error.message === "AUTH_REQUIRED") {
+      return NextResponse.json(
+        { error: "Devam etmek için giriş yapın veya hesap oluşturun.", authRequired: true },
+        { status: 401 },
+      );
+    }
+
     const message =
       error instanceof Error ? error.message : "Kurulum başlatılamadı.";
 

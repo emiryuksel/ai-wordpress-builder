@@ -46,7 +46,7 @@ function buildProductImagePrompt(
 
 async function generateImageWithRetry(
   generate: () => Promise<Buffer | null>,
-  attempts = 2,
+  attempts = 3,
 ): Promise<Buffer | null> {
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     const buffer = await generate();
@@ -161,6 +161,39 @@ function buildBlogImagePrompt(
     "Suitable as a WordPress blog post header image.",
     "No text, no watermark, no logo, no collage of multiple scenes.",
   ].join(" ");
+}
+
+export async function generateCorporateImage(
+  sceneDescription: string,
+  userPrompt: string,
+  attempts = 3,
+): Promise<Buffer | null> {
+  const apiKey = process.env.GEMINI_API_KEY;
+
+  if (!apiKey) {
+    return null;
+  }
+
+  const prompt = [
+    "Professional corporate website photography or illustration.",
+    sceneDescription,
+    userPrompt,
+    "Clean, modern, trustworthy business aesthetic.",
+    "High quality, suitable for a company homepage.",
+    "No text, no watermark, no logo.",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return generateImageWithRetry(async () => {
+    for (const model of IMAGE_MODELS) {
+      const buffer = await requestImageFromModel(apiKey, model, prompt);
+      if (buffer && buffer.length > 1024) {
+        return buffer;
+      }
+    }
+    return null;
+  }, attempts);
 }
 
 export async function generateBlogFeaturedImage(

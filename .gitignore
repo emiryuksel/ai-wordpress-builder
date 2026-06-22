@@ -36,6 +36,7 @@ yarn-error.log*
 
 # runtime project data
 /data/projects.json
+/data/users.json
 /data/runtime/
 
 # vercel

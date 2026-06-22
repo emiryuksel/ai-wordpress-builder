@@ -3,8 +3,16 @@ import path from "node:path";
 
 export type ProjectStatus = "provisioning" | "installing" | "ready" | "error";
 
+export interface PendingBrand {
+  brandName?: string;
+  primaryColor?: string;
+  headingFont?: string;
+  bodyFont?: string;
+}
+
 export interface Project {
   id: string;
+  userId?: string;
   prompt: string;
   siteType: string;
   siteTitle: string;
@@ -14,6 +22,10 @@ export interface Project {
   hostPort: number;
   siteUrl: string;
   status: ProjectStatus;
+  wpAdminUser?: string;
+  wpAdminPassword?: string;
+  pendingBrand?: PendingBrand;
+  brandOnboardingComplete?: boolean;
   error?: string;
   createdAt: string;
   updatedAt: string;
@@ -68,7 +80,19 @@ export async function getProject(projectId: string): Promise<Project | null> {
 export async function updateProject(
   projectId: string,
   patch: Partial<
-    Pick<Project, "status" | "error" | "hostPort" | "siteUrl" | "siteTitle">
+    Pick<
+      Project,
+      | "status"
+      | "error"
+      | "hostPort"
+      | "siteUrl"
+      | "siteTitle"
+      | "suggestedPrimaryColor"
+      | "pendingBrand"
+      | "brandOnboardingComplete"
+      | "wpAdminUser"
+      | "wpAdminPassword"
+    >
   >,
 ): Promise<Project | null> {
   const store = await ensureStore();
@@ -92,4 +116,19 @@ export async function updateProject(
 export async function listProjects(): Promise<Project[]> {
   const store = await ensureStore();
   return store.projects;
+}
+
+export async function listProjectsByUserId(userId: string): Promise<Project[]> {
+  const store = await ensureStore();
+  return store.projects
+    .filter((project) => project.userId === userId)
+    .sort(
+      (left, right) =>
+        new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime(),
+    );
+}
+
+export async function countProjectsByUserId(userId: string): Promise<number> {
+  const store = await ensureStore();
+  return store.projects.filter((project) => project.userId === userId).length;
 }

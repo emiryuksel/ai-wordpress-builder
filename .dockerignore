@@ -1,0 +1,16 @@
+node_modules
+.next
+.git
+.gitignore
+data
+.env*
+!.env.local.example
+README.md
+COOLIFY.md
+.repo-backup
+coverage
+*.md
+!docker/wp-init/**/*.md
+.DS_Store
+npm-debug.log*
+terminals

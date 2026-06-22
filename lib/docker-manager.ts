@@ -8,6 +8,7 @@ import { promisify } from "node:util";
 const execFileAsync = promisify(execFile);
 
 import { listProjects } from "@/lib/project-store";
+import { buildWordPressSiteUrl } from "@/lib/public-url";
 
 const ROOT_DIR = process.cwd();
 const TEMPLATE_PATH = path.join(ROOT_DIR, "docker", "docker-compose.template.yml");
@@ -248,10 +249,33 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+const WP_INIT_SHELL_SCRIPTS = [
+  "setup.sh",
+  "setup-blog.sh",
+  "setup-woocommerce.sh",
+  "setup-corporate.sh",
+] as const;
+
+async function normalizeShellScripts(targetDir: string): Promise<void> {
+  for (const script of WP_INIT_SHELL_SCRIPTS) {
+    const scriptPath = path.join(targetDir, script);
+    try {
+      const content = await fs.readFile(scriptPath, "utf8");
+      const normalized = content.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+      if (normalized !== content) {
+        await fs.writeFile(scriptPath, normalized, "utf8");
+      }
+    } catch {
+      // Script may not exist in older runtime folders.
+    }
+  }
+}
+
 async function copyWpInit(projectDir: string): Promise<void> {
   const destination = path.join(projectDir, "wp-init");
   await fs.mkdir(destination, { recursive: true });
   await fs.cp(WP_INIT_TEMPLATE_DIR, destination, { recursive: true });
+  await normalizeShellScripts(destination);
 }
 
 function quoteConfigValue(value: string): string {
@@ -303,11 +327,11 @@ export async function provisionProject(
   const dbRootPassword = crypto.randomBytes(16).toString("hex");
   const adminPassword = crypto.randomBytes(12).toString("hex");
 
-  const siteType = config.siteType ?? "blog";
+  const siteType = config.siteType ?? "kurumsal";
   const suggestedTheme = config.suggestedTheme ?? "astra";
   const suggestedPlugins = config.suggestedPlugins ?? [];
   const siteTitle = config.siteTitle ?? "AI WordPress Site";
-  const siteUrl = `http://localhost:${hostPort}`;
+  const siteUrl = buildWordPressSiteUrl(hostPort);
   const userPrompt = config.userPrompt ?? "";
 
   const { projectDir, composePath, wordpressContainer } =
@@ -316,6 +340,7 @@ export async function provisionProject(
   await fs.mkdir(projectDir, { recursive: true });
   await fs.mkdir(path.join(projectDir, "product-images"), { recursive: true });
   await fs.mkdir(path.join(projectDir, "blog-images"), { recursive: true });
+  await fs.mkdir(path.join(projectDir, "corporate-images"), { recursive: true });
   await copyWpInit(projectDir);
 
   const template = await fs.readFile(TEMPLATE_PATH, "utf8");
@@ -397,6 +422,16 @@ export async function runProjectSetup(projectId: string): Promise<void> {
   throw lastError ?? new Error("WordPress kurulumu başarısız oldu.");
 }
 
+export async function runWooCommerceSetup(projectId: string): Promise<void> {
+  const { composePath } = getProjectPaths(projectId);
+  await runDockerCompose(
+    projectId,
+    composePath,
+    ["run", "--rm", "--entrypoint", "sh", "wpcli", "/wp-init/setup-woocommerce.sh"],
+    { profiles: ["tools"], timeoutMs: 600_000 },
+  );
+}
+
 export async function stopProject(projectId: string): Promise<void> {
   const { composePath } = getProjectPaths(projectId);
   await runDockerCompose(projectId, composePath, ["down"]);
@@ -465,8 +500,10 @@ export async function execWpCliSh(
   const { composePath, projectDir } = getProjectPaths(projectId);
   const productImagesDir = path.join(projectDir, "product-images");
   const blogImagesDir = path.join(projectDir, "blog-images");
+  const corporateImagesDir = path.join(projectDir, "corporate-images");
   await fs.mkdir(productImagesDir, { recursive: true });
   await fs.mkdir(blogImagesDir, { recursive: true });
+  await fs.mkdir(corporateImagesDir, { recursive: true });
 
   const wpArgs = [
     "compose",
@@ -482,6 +519,8 @@ export async function execWpCliSh(
     `${productImagesDir}:/product-images`,
     "-v",
     `${blogImagesDir}:/blog-images`,
+    "-v",
+    `${corporateImagesDir}:/corporate-images`,
     "--entrypoint",
     "sh",
     "wpcli",

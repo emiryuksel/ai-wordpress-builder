@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 
+import { getSessionUser } from "@/lib/auth";
 import { parseChatAction } from "@/lib/gemini-client";
-import { getProject, updateProject } from "@/lib/project-store";
+import { getProjectForUser, ProjectAccessError } from "@/lib/project-access";
+import { updateProject } from "@/lib/project-store";
 import {
   applyChatAction,
   formatChatError,
@@ -27,10 +29,19 @@ export async function POST(request: Request) {
       );
     }
 
-    const project = await getProject(projectId);
+    const user = await getSessionUser();
+    if (!user) {
+      return NextResponse.json({ error: "Giriş gerekli." }, { status: 401 });
+    }
 
-    if (!project) {
-      return NextResponse.json({ error: "Proje bulunamadı." }, { status: 404 });
+    let project;
+    try {
+      project = await getProjectForUser(projectId, user.id);
+    } catch (error) {
+      if (error instanceof ProjectAccessError) {
+        return NextResponse.json({ error: error.message }, { status: error.status });
+      }
+      throw error;
     }
 
     if (project.status !== "ready") {

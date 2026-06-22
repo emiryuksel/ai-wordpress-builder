@@ -80,7 +80,6 @@ setup_astra_blog_chrome() {
     fi
 
     wp menu location assign "$MENU_ID" primary --path="$WP_PATH" 2>/dev/null || true
-    wp menu location assign "$MENU_ID" secondary_menu --path="$WP_PATH" 2>/dev/null || true
     wp menu location assign "$MENU_ID" mobile_menu --path="$WP_PATH" 2>/dev/null || true
     echo "[wp-init] Ana menü atandı."
   fi

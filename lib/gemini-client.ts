@@ -74,17 +74,15 @@ export async function parseProvisionIntent(
   const genAI = getGeminiClient();
   const model = genAI.getGenerativeModel({
     model: PROVISION_MODEL,
-    systemInstruction: `Sen bir WordPress site kurulum asistanısın.
+    systemInstruction: `Sen bir kurumsal WordPress site kurulum asistanısın.
 Kullanıcının doğal dildeki isteğini analiz et ve yapılandırılmış bir kurulum planı üret.
 
 Kurallar:
-- suggestedTheme YALNIZCA şu ücretsiz WordPress.org slug'larından biri olmalı: astra, storefront, oceanwp, generatepress, kadence, blocksy, neve, twentytwentyfour.
-- ASLA premium tema önerme: flatsome, divi, avada, enfold, betheme, porto vb. yasak.
-- E-ticaret isteklerinde suggestedTheme olarak "storefront" veya "astra" kullan, suggestedPlugins içine "woocommerce" ekle.
-- suggestedPlugins yalnızca ücretsiz WordPress.org slug formatında olsun (woocommerce, elementor, contact-form-7 vb.).
-- Blog için genelde ek eklenti gerekmez (boş dizi olabilir).
-- Koyu tema isteklerinde suggestedPrimaryColor koyu bir hex renk olsun (örn. #1e293b, #0f172a).
-- siteTitle kısa, anlamlı ve kullanıcı diline uygun olsun.`,
+- siteType her zaman "kurumsal" olmalı.
+- suggestedTheme "astra" kullan.
+- suggestedPlugins boş dizi olmalı (WooCommerce veya blog eklentisi ekleme).
+- siteTitle kısa, anlamlı ve kullanıcı diline uygun olsun (firma/marka adı).
+- suggestedPrimaryColor geçerli bir hex renk olsun (örn. #1e40af).`,
     generationConfig: {
       responseMimeType: "application/json",
       responseSchema: provisionIntentGeminiSchema,
