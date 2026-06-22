@@ -15,12 +15,19 @@ RUN npm run build
 FROM node:20-bookworm-slim AS runner
 WORKDIR /app
 
+ARG DOCKER_COMPOSE_VERSION=v2.24.5
+
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
     docker.io \
-    docker-compose-plugin \
+  && mkdir -p /usr/local/lib/docker/cli-plugins \
+  && ARCH="$(uname -m)" \
+  && curl -fsSL "https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-linux-${ARCH}" \
+    -o /usr/local/lib/docker/cli-plugins/docker-compose \
+  && chmod +x /usr/local/lib/docker/cli-plugins/docker-compose \
+  && docker compose version \
   && rm -rf /var/lib/apt/lists/*
 
 ENV NODE_ENV=production
