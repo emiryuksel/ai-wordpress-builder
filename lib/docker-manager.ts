@@ -8,7 +8,10 @@ import { promisify } from "node:util";
 const execFileAsync = promisify(execFile);
 
 import { listProjects } from "@/lib/project-store";
-import { buildWordPressSiteUrl } from "@/lib/public-url";
+import {
+  buildWordPressSiteUrl,
+  getWordPressReachabilityHosts,
+} from "@/lib/public-url";
 
 const ROOT_DIR = process.cwd();
 const TEMPLATE_PATH = path.join(ROOT_DIR, "docker", "docker-compose.template.yml");
@@ -443,15 +446,16 @@ export async function removeProject(projectId: string): Promise<void> {
   await fs.rm(projectDir, { recursive: true, force: true });
 }
 
-export async function isWordPressReachable(
+async function isWordPressHttpReachable(
+  host: string,
   hostPort: number,
-  timeoutMs = 3000,
+  timeoutMs: number,
 ): Promise<boolean> {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
-    const response = await fetch(`http://127.0.0.1:${hostPort}`, {
+    const response = await fetch(`http://${host}:${hostPort}`, {
       signal: controller.signal,
       redirect: "manual",
     });
@@ -461,6 +465,47 @@ export async function isWordPressReachable(
   } catch {
     return false;
   }
+}
+
+async function isWordPressContainerReachable(
+  containerName: string,
+  timeoutMs: number,
+): Promise<boolean> {
+  try {
+    await execFileAsync(
+      "docker",
+      [
+        "exec",
+        containerName,
+        "php",
+        "-r",
+        'exit(@file_get_contents("http://127.0.0.1/") === false ? 1 : 0);',
+      ],
+      { timeout: timeoutMs, maxBuffer: 1024 * 1024 },
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function isWordPressReachable(
+  hostPort: number,
+  projectId?: string,
+  timeoutMs = 3000,
+): Promise<boolean> {
+  for (const host of getWordPressReachabilityHosts()) {
+    if (await isWordPressHttpReachable(host, hostPort, timeoutMs)) {
+      return true;
+    }
+  }
+
+  const containerName = projectId ? `${projectId}_wordpress` : null;
+  if (containerName && (await isWordPressContainerReachable(containerName, timeoutMs))) {
+    return true;
+  }
+
+  return false;
 }
 
 export async function execWpCli(

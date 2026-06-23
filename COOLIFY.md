@@ -31,6 +31,7 @@ Coolify → Application → **Environment Variables**:
 | `APP_URL` | Evet | `https://builder.sizin-domain.com` | Ana uygulama URL'si |
 | `WORDPRESS_PUBLIC_HOST` | Evet | `203.0.113.10` veya sunucu IP | WP sitelerinin host'u |
 | `WORDPRESS_URL_SCHEME` | Hayır | `http` veya `https` | WP site URL şeması |
+| `WORDPRESS_REACHABILITY_HOST` | Hayır | `host.docker.internal` | Container içinden WP sağlık kontrolü (genelde gerekmez) |
 | `NODE_ENV` | Evet | `production` | Production modu |
 
 `WORDPRESS_PUBLIC_HOST` için IP kullanıyorsanız genelde `WORDPRESS_URL_SCHEME=http` yeterlidir. Her WordPress sitesi `http://IP:8001`, `http://IP:8002` … adresinde açılır.
@@ -52,7 +53,7 @@ Uygulama, kullanıcı başına WordPress container'ı oluşturmak için host Doc
 Application → **Advanced** → **Custom Docker Options** (veya Coolify sürümünüze göre **Volumes**):
 
 ```text
--v /var/run/docker.sock:/var/run/docker.sock
+-v /var/run/docker.sock:/var/run/docker.sock --add-host=host.docker.internal:host-gateway
 ```
 
 > **Güvenlik:** Docker socket tam host kontrolü verir. Yalnızca güvendiğiniz sunucuda ve bu uygulama için kullanın.
@@ -92,6 +93,21 @@ Coolify ana uygulamayı 443 üzerinden proxy'ler; WordPress portları doğrudan 
 - Docker socket volume bağlı mı kontrol edin
 - Sunucuda `docker ps` çalışıyor mu
 - Coolify loglarında `permission denied` varsa container'ı root ile çalıştırın
+
+### "Site kuruluyor" ekranında takılı kalıyor
+
+Uygulama Coolify container'ında çalışırken WordPress stack'leri **host** üzerinde port yayınlar (`8003` gibi). Eski sürümlerde sağlık kontrolü yalnızca container içindeki `127.0.0.1` adresine bakıyordu; bu yüzden kurulum hiç bitmiyordu. Güncel kod `docker exec` ile WP container'ını da kontrol eder — **yeniden deploy** edin.
+
+Hâlâ takılıysa sunucuda SSH ile:
+
+```bash
+docker ps --format "table {{.Names}}\t{{.Ports}}\t{{.Status}}" | grep wordpress
+curl -I http://127.0.0.1:8003
+sudo ufw status | grep 800
+```
+
+- `docker ps` boşsa → Docker socket volume eksik veya izin hatası (Coolify loglarına bakın)
+- `curl` host'ta çalışıyor ama tarayıcıda açılmıyorsa → firewall (aşağıdaki bölüm)
 
 ### Önizleme boş / site açılmıyor
 

@@ -161,7 +161,7 @@ export async function completeProjectSetup(
     let reachable = false;
 
     for (let attempt = 0; attempt < 50; attempt += 1) {
-      reachable = await isWordPressReachable(project.hostPort);
+      reachable = await isWordPressReachable(project.hostPort, projectId);
       if (reachable) {
         break;
       }

@@ -42,7 +42,7 @@ export async function GET(request: Request) {
     void resumeProvisioning(projectId);
   }
 
-  const reachable = await isWordPressReachable(project.hostPort);
+  const reachable = await isWordPressReachable(project.hostPort, projectId);
   const ready = project.status === "ready" && reachable;
 
   return NextResponse.json({
