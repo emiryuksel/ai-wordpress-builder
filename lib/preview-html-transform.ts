@@ -218,12 +218,5 @@ export async function transformPreviewHtml(
     }
   }
 
-  if (!/<base\s/i.test(result)) {
-    result = result.replace(
-      /<head([^>]*)>/i,
-      `<head$1><base href="${cleanProxy(proxyBase)}/">`,
-    );
-  }
-
   return result;
 }

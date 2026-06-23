@@ -63,6 +63,14 @@ function buildProxyBase(request: Request, projectId: string): string {
   return `${origin}/site-preview/${projectId}`;
 }
 
+function getUpstreamHostHeader(project: Project): string {
+  try {
+    return new URL(resolveUpstreamOrigin(project)).host;
+  } catch {
+    return `127.0.0.1:${project.hostPort}`;
+  }
+}
+
 function buildUpstreamPath(
   request: Request,
   pathSegments: string[],
@@ -70,7 +78,19 @@ function buildUpstreamPath(
   const incoming = new URL(request.url);
   const path =
     pathSegments.length > 0 ? `/${pathSegments.join("/")}` : "/";
-  return incoming.search ? `${path}${incoming.search}` : path;
+  const params = new URLSearchParams(incoming.search);
+  params.delete("_preview");
+  const search = params.toString();
+  return search ? `${path}?${search}` : path;
+}
+
+function buildUpstreamRequestHeaders(
+  request: Request,
+  project: Project,
+): Headers {
+  const filtered = filterRequestHeaders(request.headers);
+  filtered.set("Host", getUpstreamHostHeader(project));
+  return filtered;
 }
 
 function filterRequestHeaders(headers: Headers): Headers {
@@ -169,9 +189,9 @@ async function fetchUpstream(
     try {
       const response = await fetch(upstreamUrl, {
         method: request.method,
-        headers: filterRequestHeaders(request.headers),
+        headers: buildUpstreamRequestHeaders(request, project),
         body: requestBody,
-        redirect: "manual",
+        redirect: "follow",
       });
 
       if (response.status > 0) {
