@@ -66,15 +66,41 @@ Bu olmadan her deploy'da kullanıcılar silinmez (volume bağlıysa) ancak **Wor
 
 Uygulama, kullanıcı başına WordPress container'ı oluşturmak için host Docker'ına erişmelidir.
 
-Application → **Advanced** → **Custom Docker Options** (veya Coolify sürümünüze göre **Volumes**):
+Coolify 4'te **Custom Docker Options** bazen container'a uygulanmaz. Socket'i **Persistent Storage** ile bağlayın:
+
+Application → **Persistent Storage** → **+ Add** (veri volume'una ek olarak ikinci kayıt):
+
+| Alan | Değer |
+|------|--------|
+| **Source Path** | `/var/run/docker.sock` |
+| **Destination Path** | `/var/run/docker.sock` |
+
+Application → **Advanced** → **Custom Docker Options**:
 
 ```text
--v /var/run/docker.sock:/var/run/docker.sock --add-host=host.docker.internal:host-gateway
+--add-host=host.docker.internal:host-gateway
 ```
+
+Deploy sonrası doğrulama (builder container adınızı yazın):
+
+```bash
+docker exec bs0gaoolfp9deytx887ujaan-XXXXXXXX sh -c 'ls -la /var/run/docker.sock && docker ps | head -3'
+```
+
+`No such file or directory` görürseniz socket hâlâ bağlı değildir.
 
 > **Güvenlik:** Docker socket tam host kontrolü verir. Yalnızca güvendiğiniz sunucuda ve bu uygulama için kullanın.
 
-Container'ın root olarak çalışması socket erişimi için daha sorunsuzdur (Coolify varsayılanı genelde uygundur).
+### Environment Variables — Coolify `=` tuzağı
+
+Coolify arayüzünde değerlerin başına yanlışlıkla `=` eklenebilir. **Şöyle olmamalı:**
+
+| Yanlış | Doğru |
+|--------|--------|
+| `=188.34.207.213` | `188.34.207.213` |
+| `http://` | `http` |
+
+Yanlış değer `http://=188.34.207.213:8001` gibi bozuk site URL'si üretir.
 
 ## 5. Firewall — WordPress portları
 
@@ -104,9 +130,10 @@ Coolify ana uygulamayı 443 üzerinden proxy'ler; WordPress portları doğrudan 
 
 ## 8. Sorun giderme
 
-### "Docker komutu başarısız oldu"
+### "Docker komutu başarısız oldu" / `Cannot connect to the Docker daemon`
 
-- Docker socket volume bağlı mı kontrol edin
+- `docker inspect <builder-container> --format '{{json .Mounts}}'` çıktısında `/var/run/docker.sock` görünmeli
+- Container içinde `ls /var/run/docker.sock` başarısızsa → Bölüm 4'teki socket volume'u ekleyin (Custom Docker Options tek başına yetmeyebilir)
 - Sunucuda `docker ps` çalışıyor mu
 - Coolify loglarında `permission denied` varsa container'ı root ile çalıştırın
 

@@ -1,8 +1,19 @@
+/** Coolify bazen env değerlerinin başına '=' ekler — temizle. */
+function sanitizeEnvValue(value: string | undefined): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const trimmed = value.trim().replace(/^=+/, "");
+  return trimmed || undefined;
+}
+
 /** WordPress önizleme / site URL'si (production'da public host kullanılır). */
 export function buildWordPressSiteUrl(hostPort: number): string {
-  const host = process.env.WORDPRESS_PUBLIC_HOST?.trim() || "localhost";
+  const host = sanitizeEnvValue(process.env.WORDPRESS_PUBLIC_HOST) || "localhost";
+  const rawScheme = sanitizeEnvValue(process.env.WORDPRESS_URL_SCHEME);
   const scheme =
-    process.env.WORDPRESS_URL_SCHEME?.trim() ||
+    rawScheme?.replace(/:$/, "") ||
     (host === "localhost" || /^\d{1,3}(\.\d{1,3}){3}$/.test(host)
       ? "http"
       : "https");
@@ -16,8 +27,8 @@ export function buildWordPressSiteUrl(hostPort: number): string {
  */
 export function getWordPressReachabilityHosts(): string[] {
   const hosts: string[] = [];
-  const explicit = process.env.WORDPRESS_REACHABILITY_HOST?.trim();
-  const publicHost = process.env.WORDPRESS_PUBLIC_HOST?.trim();
+  const explicit = sanitizeEnvValue(process.env.WORDPRESS_REACHABILITY_HOST);
+  const publicHost = sanitizeEnvValue(process.env.WORDPRESS_PUBLIC_HOST);
 
   if (explicit) {
     hosts.push(explicit);
