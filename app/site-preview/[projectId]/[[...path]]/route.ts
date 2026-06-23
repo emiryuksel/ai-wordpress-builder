@@ -1,8 +1,14 @@
+import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 
 import { getSessionUser } from "@/lib/auth";
+import { WP_PREVIEW_COOKIE } from "@/lib/preview-constants";
 import { getProjectForUser, ProjectAccessError } from "@/lib/project-access";
-import { proxySitePreviewRequest } from "@/lib/site-preview-proxy";
+import { getProject } from "@/lib/project-store";
+import {
+  isPreviewAssetPath,
+  proxySitePreviewRequest,
+} from "@/lib/site-preview-proxy";
 
 export const runtime = "nodejs";
 
@@ -10,19 +16,41 @@ interface RouteContext {
   params: Promise<{ projectId: string; path?: string[] }>;
 }
 
+async function resolveProject(
+  projectId: string,
+  path: string[] | undefined,
+) {
+  const user = await getSessionUser();
+  if (user) {
+    return getProjectForUser(projectId, user.id);
+  }
+
+  const isAsset = isPreviewAssetPath(path);
+  const previewCookie = (await cookies()).get(WP_PREVIEW_COOKIE)?.value;
+
+  if (isAsset && previewCookie === projectId) {
+    const project = await getProject(projectId);
+    if (!project) {
+      throw new ProjectAccessError("Proje bulunamadı.", 404);
+    }
+    return project;
+  }
+
+  return null;
+}
+
 async function handle(
   request: NextRequest,
   context: RouteContext,
 ): Promise<NextResponse> {
   const { projectId, path } = await context.params;
-  const user = await getSessionUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Giriş gerekli." }, { status: 401 });
-  }
 
   try {
-    const project = await getProjectForUser(projectId, user.id);
+    const project = await resolveProject(projectId, path);
+
+    if (!project) {
+      return NextResponse.json({ error: "Giriş gerekli." }, { status: 401 });
+    }
 
     if (project.status !== "ready") {
       return NextResponse.json(

@@ -867,7 +867,6 @@ export default function BuilderWorkspace({ projectId }: BuilderWorkspaceProps) {
                     ? "scale-[0.998] blur-[3px]"
                     : "scale-100 blur-0"
                 }`}
-                sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
               />
             ) : (
               <div className="flex h-full w-full flex-col items-center justify-center rounded-xl border border-zinc-300 bg-white px-6 text-center shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
