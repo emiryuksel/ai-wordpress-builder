@@ -6,6 +6,11 @@ import {
 } from "@/lib/public-url";
 import type { Project } from "@/lib/project-store";
 
+import {
+  rewriteTextForPreview,
+  rewriteUrlForPreview,
+  transformPreviewHtml,
+} from "@/lib/preview-html-transform";
 import { WP_PREVIEW_COOKIE } from "@/lib/preview-constants";
 
 const REWRITE_CONTENT_TYPES = new Set([
@@ -82,106 +87,6 @@ function filterRequestHeaders(headers: Headers): Headers {
   return filtered;
 }
 
-function isAlreadyProxied(value: string, proxy: string): boolean {
-  return (
-    value.includes(`${proxy}/wp-content`) ||
-    value.includes(`${proxy}/wp-includes`) ||
-    value.includes("/site-preview/")
-  );
-}
-
-/** Tüm http(s)://host:PORT referanslarını proxy köküne çevir (mixed content önleme). */
-function rewritePortUrls(text: string, port: number, proxy: string): string {
-  const portPattern = String(port);
-  let result = text.replace(
-    new RegExp(
-      `https?:\\/\\/[^"'\\s<>)]+:${portPattern}(?=[/"'\\s>)])`,
-      "gi",
-    ),
-    proxy,
-  );
-
-  try {
-    const proxyUrl = new URL(proxy);
-    const protocolRelative =
-      `//${proxyUrl.host}${proxyUrl.pathname}`.replace(/\/$/, "");
-    result = result.replace(
-      new RegExp(
-        `\\/\\/[^"'\\s<>)]+:${portPattern}(?=[/"'\\s>)])`,
-        "gi",
-      ),
-      protocolRelative,
-    );
-  } catch {
-    // ignore
-  }
-
-  return result;
-}
-
-function rewriteWpRootPath(path: string, proxy: string): string {
-  const cleanProxy = proxy.replace(/\/$/, "");
-  if (path.startsWith(cleanProxy)) {
-    return path;
-  }
-  return `${cleanProxy}${path}`;
-}
-
-function rewriteSrcsetValue(value: string, proxy: string, port: number): string {
-  return value
-    .split(",")
-    .map((entry) => {
-      const trimmed = entry.trim();
-      const spaceIndex = trimmed.search(/\s+\d/);
-      const url =
-        spaceIndex === -1 ? trimmed : trimmed.slice(0, spaceIndex).trim();
-      const descriptor =
-        spaceIndex === -1 ? "" : trimmed.slice(spaceIndex).trim();
-
-      let nextUrl = rewritePortUrls(url, port, proxy);
-      if (url.startsWith("/") && !isAlreadyProxied(url, proxy)) {
-        nextUrl = rewriteWpRootPath(url, proxy);
-      }
-
-      return descriptor ? `${nextUrl} ${descriptor}` : nextUrl;
-    })
-    .join(", ");
-}
-
-function rewriteRootRelativeWpUrls(text: string, proxy: string): string {
-  const cleanProxy = proxy.replace(/\/$/, "");
-
-  let result = text.replace(
-    /(?<![\w./])(\/(?:wp-content|wp-includes|wp-json)(?:\/[^\s"'<>)]*)?)/g,
-    (path) => {
-      if (path.startsWith(cleanProxy) || isAlreadyProxied(path, proxy)) {
-        return path;
-      }
-      return `${cleanProxy}${path}`;
-    },
-  );
-
-  result = result.replace(
-    /(^|["'(=:,\s])(\/(?:wp-content|wp-includes|wp-json)[^"'()\s,>]*)/g,
-    (match, prefix, path) => {
-      if (path.startsWith(cleanProxy) || isAlreadyProxied(path, proxy)) {
-        return match;
-      }
-      return `${prefix}${cleanProxy}${path}`;
-    },
-  );
-
-  return result;
-}
-
-function injectHtmlBaseTag(html: string, proxy: string): string {
-  const baseTag = `<base href="${proxy.replace(/\/$/, "")}/">`;
-  if (html.includes("<base ")) {
-    return html;
-  }
-  return html.replace(/<head([^>]*)>/i, `<head$1>${baseTag}`);
-}
-
 function attachPreviewCookie(
   response: NextResponse,
   projectId: string,
@@ -196,56 +101,12 @@ function attachPreviewCookie(
   return response;
 }
 
-function rewriteBody(
-  body: string,
-  project: Project,
-  proxyBase: string,
-  contentType: string,
-): string {
-  const proxy = proxyBase.replace(/\/$/, "");
-  const port = project.hostPort;
-
-  let result = rewritePortUrls(body, port, proxy);
-  result = rewriteRootRelativeWpUrls(result, proxy);
-
-  result = result.replace(
-    /\bsrcset=(["'])(.*?)\1/gi,
-    (match, quote, value) => {
-      if (isAlreadyProxied(value, proxy)) {
-        return match;
-      }
-      return `srcset=${quote}${rewriteSrcsetValue(value, proxy, port)}${quote}`;
-    },
-  );
-
-  result = result.replace(
-    /\b(?:href|src|action|content|poster|data-src|data-lazy-src|data-bg|data-background|imagesrcset)=(["'])(\/(?!\/)[^"']*)\2/gi,
-    (match, _quote, path) => {
-      if (!path.startsWith("/wp-") || isAlreadyProxied(path, proxy)) {
-        return match;
-      }
-      return match.replace(path, rewriteWpRootPath(path, proxy));
-    },
-  );
-
-  if (contentType.includes("text/html")) {
-    result = injectHtmlBaseTag(result, proxy);
-  }
-
-  return result;
-}
-
 function rewriteLocation(
   location: string,
   project: Project,
   proxyBase: string,
 ): string {
-  const proxy = proxyBase.replace(/\/$/, "");
-  let next = rewritePortUrls(location, project.hostPort, proxy);
-  if (next.startsWith("/wp-")) {
-    next = `${proxy}${next}`;
-  }
-  return next;
+  return rewriteUrlForPreview(location, project, proxyBase);
 }
 
 function buildResponseHeaders(upstreamHeaders: Headers): Headers {
@@ -324,6 +185,18 @@ async function fetchUpstream(
   throw lastError ?? new Error("WordPress önizlemesi yüklenemedi.");
 }
 
+export async function fetchUpstreamText(
+  project: Project,
+  upstreamPath: string,
+): Promise<string> {
+  const response = await fetchUpstream(
+    project,
+    upstreamPath.startsWith("/") ? upstreamPath : `/${upstreamPath}`,
+    new Request("http://preview-local"),
+  );
+  return response.text();
+}
+
 export async function proxySitePreviewRequest(
   request: Request,
   project: Project,
@@ -369,7 +242,11 @@ export async function proxySitePreviewRequest(
   }
 
   const rawBody = await upstreamResponse.text();
-  const rewritten = rewriteBody(rawBody, project, proxyBase, contentType);
+  const rewritten = contentType.includes("text/html")
+    ? await transformPreviewHtml(rawBody, project, proxyBase, (upstreamPath) =>
+        fetchUpstreamText(project, upstreamPath),
+      )
+    : rewriteTextForPreview(rawBody, project, proxyBase);
 
   responseHeaders.delete("content-length");
   return attachPreviewCookie(
