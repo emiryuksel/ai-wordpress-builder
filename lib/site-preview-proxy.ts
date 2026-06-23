@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { buildWordPressSiteUrl } from "@/lib/public-url";
 import type { Project } from "@/lib/project-store";
 
+import { WP_PREVIEW_COOKIE } from "@/lib/preview-constants";
+
 const REWRITE_CONTENT_TYPES = new Set([
   "text/html",
   "text/css",
@@ -188,7 +190,17 @@ function rewriteSrcsetValue(
 function rewriteRootRelativeWpUrls(text: string, proxy: string): string {
   const cleanProxy = proxy.replace(/\/$/, "");
 
-  return text.replace(
+  let result = text.replace(
+    /(?<![\w./])(\/(?:wp-content|wp-includes|wp-json)(?:\/[^\s"'<>)]*)?)/g,
+    (path) => {
+      if (path.startsWith(cleanProxy) || isAlreadyProxied(path, proxy)) {
+        return path;
+      }
+      return `${cleanProxy}${path}`;
+    },
+  );
+
+  result = result.replace(
     /(^|["'(=\s])(\/(?:wp-content|wp-includes|wp-json)[^"'()\s,>]*)/g,
     (match, prefix, path) => {
       if (path.startsWith(cleanProxy) || isAlreadyProxied(path, proxy)) {
@@ -197,6 +209,22 @@ function rewriteRootRelativeWpUrls(text: string, proxy: string): string {
       return `${prefix}${cleanProxy}${path}`;
     },
   );
+
+  return result;
+}
+
+function attachPreviewCookie(
+  response: NextResponse,
+  projectId: string,
+): NextResponse {
+  response.cookies.set(WP_PREVIEW_COOKIE, projectId, {
+    path: "/",
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 60 * 60 * 24,
+  });
+  return response;
 }
 
 function rewriteBody(
@@ -337,18 +365,24 @@ export async function proxySitePreviewRequest(
   );
 
   if (!shouldRewrite) {
-    return new NextResponse(upstreamResponse.body, {
-      status: upstreamResponse.status,
-      headers: responseHeaders,
-    });
+    return attachPreviewCookie(
+      new NextResponse(upstreamResponse.body, {
+        status: upstreamResponse.status,
+        headers: responseHeaders,
+      }),
+      project.id,
+    );
   }
 
   const rawBody = await upstreamResponse.text();
   const rewritten = rewriteBody(rawBody, project, proxyBase);
 
   responseHeaders.delete("content-length");
-  return new NextResponse(rewritten, {
-    status: upstreamResponse.status,
-    headers: responseHeaders,
-  });
+  return attachPreviewCookie(
+    new NextResponse(rewritten, {
+      status: upstreamResponse.status,
+      headers: responseHeaders,
+    }),
+    project.id,
+  );
 }
