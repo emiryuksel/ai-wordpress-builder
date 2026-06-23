@@ -4,11 +4,11 @@ import path from "node:path";
 import { z } from "zod";
 
 import { execWpCli, execWpCliSh } from "@/lib/docker-manager";
+import { getRuntimeRoot } from "@/lib/data-paths";
 import { generateBlogFeaturedImage } from "@/lib/gemini-image";
 import { getGeminiClient } from "@/lib/gemini-client";
 import { isCorporateProject, isEcommerceProject, CORPORATE_ONLY_MODE } from "@/lib/site-type";
 
-const RUNTIME_ROOT = path.join(process.cwd(), "data", "runtime");
 const BLOG_MODEL = "gemini-2.5-flash-lite";
 const BLOG_POST_COUNT = 4;
 const AI_IMAGE_CONCURRENCY = 3;
@@ -219,7 +219,7 @@ async function getPublishedPostCount(projectId: string): Promise<number> {
 }
 
 function planFilePath(projectId: string): string {
-  return path.join(RUNTIME_ROOT, projectId, "blog-plan.json");
+  return path.join(getRuntimeRoot(), projectId, "blog-plan.json");
 }
 
 async function saveBlogPlan(
@@ -329,7 +329,7 @@ async function attachAiBlogFeaturedImage(
     return false;
   }
 
-  const imagesDir = path.join(RUNTIME_ROOT, projectId, "blog-images");
+  const imagesDir = path.join(getRuntimeRoot(), projectId, "blog-images");
   await fs.mkdir(imagesDir, { recursive: true });
   const fileName = `blog-ai-${postId}.jpg`;
   await fs.writeFile(path.join(imagesDir, fileName), buffer);

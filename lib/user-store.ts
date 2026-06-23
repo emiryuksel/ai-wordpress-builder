@@ -3,6 +3,7 @@ import path from "node:path";
 import { v4 as uuidv4 } from "uuid";
 
 import { hashPassword, verifyPassword } from "@/lib/password";
+import { getDataRoot } from "@/lib/data-paths";
 import type { UserPlan } from "@/lib/plans";
 
 export type UserRole = "admin" | "user";
@@ -22,7 +23,7 @@ interface UserStoreData {
   users: User[];
 }
 
-const DATA_DIR = path.join(process.cwd(), "data");
+const DATA_DIR = getDataRoot();
 const STORE_PATH = path.join(DATA_DIR, "users.json");
 
 let bootstrapPromise: Promise<void> | null = null;

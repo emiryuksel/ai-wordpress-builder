@@ -2,9 +2,8 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 import type { Project } from "@/lib/project-store";
+import { getRuntimeRoot } from "@/lib/data-paths";
 import type { WordPressAccessInfo } from "@/lib/support";
-
-const RUNTIME_ROOT = path.join(process.cwd(), "data", "runtime");
 
 function parseSiteConfigValue(content: string, key: string): string | null {
   const pattern = new RegExp(`^${key}="((?:[^"\\\\]|\\\\.)*)"$`, "m");
@@ -19,7 +18,7 @@ export async function readWordPressCredentials(
   projectId: string,
   fallbackSiteUrl = "",
 ): Promise<WordPressAccessInfo | null> {
-  const configPath = path.join(RUNTIME_ROOT, projectId, "wp-init", "site.config");
+  const configPath = path.join(getRuntimeRoot(), projectId, "wp-init", "site.config");
 
   try {
     const content = await fs.readFile(configPath, "utf8");

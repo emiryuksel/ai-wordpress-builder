@@ -2,11 +2,10 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 import { execWpCli, execWpCliSh, runWooCommerceSetup } from "@/lib/docker-manager";
+import { getRuntimeRoot } from "@/lib/data-paths";
 import { generateProductImage } from "@/lib/gemini-image";
 import type { ChatAction } from "@/lib/intent-schema";
 import { inferProductCategory } from "@/lib/product-images";
-
-const RUNTIME_ROOT = path.join(process.cwd(), "data", "runtime");
 
 const ASTRA_COLOR_MAP: Record<string, string> = {
   primary: "theme-color",
@@ -886,7 +885,7 @@ async function attachAiProductImage(
     );
   }
 
-  const imagesDir = path.join(RUNTIME_ROOT, projectId, "product-images");
+  const imagesDir = path.join(getRuntimeRoot(), projectId, "product-images");
   await fs.mkdir(imagesDir, { recursive: true });
   const fileName = `ai-${productId}.jpg`;
   const containerPath = `/product-images/${fileName}`;

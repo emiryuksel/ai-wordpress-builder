@@ -36,15 +36,31 @@ Coolify → Application → **Environment Variables**:
 
 `WORDPRESS_PUBLIC_HOST` için IP kullanıyorsanız genelde `WORDPRESS_URL_SCHEME=http` yeterlidir. Her WordPress sitesi `http://IP:8001`, `http://IP:8002` … adresinde açılır.
 
-## 3. Kalıcı depolama (volume)
+## 3. Kalıcı depolama (volume) — kritik
 
-Application → **Storages** / **Persistent Storage**:
+Uygulama Docker socket ile **host üzerinde** WordPress container'ı oluşturur. `docker-compose.yml` dosyası host'ta **aynı mutlak yolla** görünmelidir; aksi halde kurulum sessizce başarısız olur ve `watch` ile `_wordpress` container'ı hiç görünmez.
 
-| Container path | Açıklama |
-|----------------|----------|
-| `/app/data` | Projeler, kullanıcılar, runtime |
+### Adım A — Host'ta klasör oluşturun (SSH)
 
-Bu olmadan her deploy'da kullanıcılar ve siteler silinir.
+```bash
+mkdir -p /app/data/runtime
+chmod 755 /app/data
+```
+
+### Adım B — Coolify Persistent Storage
+
+Application → **Persistent Storage** → mevcut volume'u **silin** ve yeniden ekleyin:
+
+| Alan | Değer |
+|------|--------|
+| **Source Path** | `/app/data` |
+| **Destination Path** | `/app/data` |
+
+> Source Path **boş bırakılmamalı**. Coolify'ın yönettiği anonim volume (`bs0gaoolfp9deytx887ujaan-data` gibi) host'ta `/app/data` yoluna denk gelmez; Docker compose dosyasını bulamaz.
+
+İsteğe bağlı: farklı host yolu kullanacaksanız hem Source hem Destination aynı olsun (ör. `/data/ai-wp` → `/data/ai-wp`) ve `WP_DATA_ROOT=/data/ai-wp` environment variable ekleyin.
+
+Bu olmadan her deploy'da kullanıcılar silinmez (volume bağlıysa) ancak **WordPress stack'leri hiç oluşmaz**.
 
 ## 4. Docker socket (kritik)
 
@@ -94,9 +110,11 @@ Coolify ana uygulamayı 443 üzerinden proxy'ler; WordPress portları doğrudan 
 - Sunucuda `docker ps` çalışıyor mu
 - Coolify loglarında `permission denied` varsa container'ı root ile çalıştırın
 
-### "Site kuruluyor" ekranında takılı kalıyor
+### "Site kuruluyor" ekranında takılı kalıyor / `watch` boş
 
-Uygulama Coolify container'ında çalışırken WordPress stack'leri **host** üzerinde port yayınlar (`8003` gibi). Eski sürümlerde sağlık kontrolü yalnızca container içindeki `127.0.0.1` adresine bakıyordu; bu yüzden kurulum hiç bitmiyordu. Güncel kod `docker exec` ile WP container'ını da kontrol eder — **yeniden deploy** edin.
+**En sık sebep:** Persistent Storage Source Path boş — host'ta `/app/data` yok, Docker compose dosyasına erişilemiyor. Bölüm 3'teki `/app/data` → `/app/data` bind mount'u uygulayın.
+
+Uygulama Coolify container'ında çalışırken WordPress stack'leri **host** üzerinde port yayınlar (`8003` gibi). Güncel kod `docker exec` ile WP container'ını da kontrol eder — **yeniden deploy** edin.
 
 Hâlâ takılıysa sunucuda SSH ile:
 

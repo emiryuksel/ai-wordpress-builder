@@ -7,6 +7,7 @@ import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
 
+import { getRuntimeRoot } from "@/lib/data-paths";
 import { listProjects } from "@/lib/project-store";
 import {
   buildWordPressSiteUrl,
@@ -16,7 +17,6 @@ import {
 const ROOT_DIR = process.cwd();
 const TEMPLATE_PATH = path.join(ROOT_DIR, "docker", "docker-compose.template.yml");
 const WP_INIT_TEMPLATE_DIR = path.join(ROOT_DIR, "docker", "wp-init");
-const RUNTIME_ROOT = path.join(ROOT_DIR, "data", "runtime");
 
 export interface ProjectRuntimeConfig {
   siteType?: string;
@@ -45,7 +45,7 @@ export interface ProjectPaths {
 }
 
 function getProjectPaths(projectId: string): ProjectPaths {
-  const projectDir = path.join(RUNTIME_ROOT, projectId);
+  const projectDir = path.join(getRuntimeRoot(), projectId);
   return {
     projectDir,
     composePath: path.join(projectDir, "docker-compose.yml"),
@@ -192,6 +192,15 @@ export function parseDockerComposeError(error: unknown): Error {
   if (output.includes("Duplicate entry")) {
     return new Error(
       "Veritabanı çakışması oluştu. Kurulum yeniden denenecek.",
+    );
+  }
+
+  if (
+    output.includes("no such file or directory") &&
+    output.includes("docker-compose")
+  ) {
+    return new Error(
+      "Docker compose dosyası host üzerinde bulunamadı. Coolify'da kalıcı depolama için Source Path ve Destination Path aynı host yolu olmalı (ör. /app/data → /app/data). COOLIFY.md bölüm 3'e bakın.",
     );
   }
 

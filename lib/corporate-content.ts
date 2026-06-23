@@ -4,6 +4,7 @@ import path from "node:path";
 import { z } from "zod";
 
 import { execWpCli, execWpCliSh } from "@/lib/docker-manager";
+import { getRuntimeRoot } from "@/lib/data-paths";
 import { generateCorporateImage } from "@/lib/gemini-image";
 import { getGeminiClient } from "@/lib/gemini-client";
 import { applyChatAction } from "@/lib/wp-cli";
@@ -11,7 +12,6 @@ import { isCorporateProject } from "@/lib/site-type";
 
 export { isCorporateProject };
 
-const RUNTIME_ROOT = path.join(process.cwd(), "data", "runtime");
 const CORPORATE_MODEL = "gemini-2.5-flash-lite";
 const AI_IMAGE_CONCURRENCY = 4;
 const CORPORATE_IMAGE_MAX_ROUNDS = 6;
@@ -370,7 +370,7 @@ function resolvePendingCorporateImageJobs(
 }
 
 function planPath(projectId: string): string {
-  return path.join(RUNTIME_ROOT, projectId, "corporate-plan.json");
+  return path.join(getRuntimeRoot(), projectId, "corporate-plan.json");
 }
 
 export function buildCorporatePageHtml(
@@ -455,7 +455,7 @@ async function getHomePageId(projectId: string): Promise<string | null> {
 async function updateHomeContent(projectId: string, html: string): Promise<void> {
   const pageId = await getHomePageId(projectId);
   if (!pageId) throw new Error("Kurumsal ana sayfa bulunamadı.");
-  const file = path.join(RUNTIME_ROOT, projectId, "corporate-images", "home.html");
+  const file = path.join(getRuntimeRoot(), projectId, "corporate-images", "home.html");
   await fs.mkdir(path.dirname(file), { recursive: true });
   await fs.writeFile(file, html, "utf8");
   await execWpCliSh(
@@ -582,7 +582,7 @@ async function importImage(
   name: string,
   buffer: Buffer,
 ): Promise<string | null> {
-  const dir = path.join(RUNTIME_ROOT, projectId, "corporate-images");
+  const dir = path.join(getRuntimeRoot(), projectId, "corporate-images");
   await fs.mkdir(dir, { recursive: true });
   await fs.writeFile(path.join(dir, name), buffer);
   try {

@@ -15,6 +15,7 @@ import {
   runCorporateImageEnrichment,
   setupCorporateContent,
 } from "@/lib/corporate-content";
+import { getRuntimeRoot } from "@/lib/data-paths";
 import { getProject, updateProject } from "@/lib/project-store";
 import { isEcommerceProject } from "@/lib/site-type";
 import { persistWordPressCredentials } from "@/lib/wordpress-access";
@@ -30,8 +31,6 @@ const setupInProgress = new Set<string>();
 const provisioningInProgress = new Set<string>();
 const enrichmentInProgress = new Set<string>();
 
-const RUNTIME_ROOT = path.join(process.cwd(), "data", "runtime");
-
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -46,7 +45,7 @@ export function isProvisioningActive(projectId: string): boolean {
 
 async function composeFileExists(projectId: string): Promise<boolean> {
   try {
-    await fs.access(path.join(RUNTIME_ROOT, projectId, "docker-compose.yml"));
+    await fs.access(path.join(getRuntimeRoot(), projectId, "docker-compose.yml"));
     return true;
   } catch {
     return false;
