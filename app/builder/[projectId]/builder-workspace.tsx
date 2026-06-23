@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 
+import ExternalSitePreview from "@/app/components/external-site-preview";
 import WordPressAccessCard from "@/app/components/wordpress-access-card";
-import { buildSitePreviewPath } from "@/lib/site-preview-proxy";
+import { needsExternalPreview } from "@/lib/preview-mode";
 import type { WordPressAccessInfo } from "@/lib/support";
 
 type ProjectResponse = {
@@ -172,6 +173,7 @@ export default function BuilderWorkspace({ projectId }: BuilderWorkspaceProps) {
     useState<(typeof BODY_FONT_OPTIONS)[number]["id"]>("inter");
   const [brandSaving, setBrandSaving] = useState(false);
   const [brandError, setBrandError] = useState<string | null>(null);
+  const [useExternalPreview, setUseExternalPreview] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -392,7 +394,18 @@ export default function BuilderWorkspace({ projectId }: BuilderWorkspaceProps) {
     void loadProject();
   }, [projectId]);
 
+  useEffect(() => {
+    if (!project) {
+      return;
+    }
+    setUseExternalPreview(needsExternalPreview(project.siteUrl));
+  }, [project]);
+
   function refreshPreview() {
+    if (project && useExternalPreview) {
+      window.open(project.siteUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
     setPreviewCacheBuster(Date.now());
   }
 
@@ -581,7 +594,7 @@ export default function BuilderWorkspace({ projectId }: BuilderWorkspaceProps) {
     );
   }
 
-  const previewUrl = buildSitePreviewPath(projectId, previewCacheBuster);
+  const previewUrl = `${project.siteUrl}?_preview=${previewCacheBuster}`;
   const isSiteReady = project.status === "ready";
   const showLivePreview = isSiteReady && previewReachable;
   const previewColorLabel =
@@ -600,7 +613,7 @@ export default function BuilderWorkspace({ projectId }: BuilderWorkspaceProps) {
           <p className="truncate text-sm text-zinc-700 dark:text-zinc-300">
             {project.siteTitle}
           </p>
-          <p className="truncate text-xs text-zinc-500">{previewUrl}</p>
+          <p className="truncate text-xs text-zinc-500">{project.siteUrl}</p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -851,23 +864,31 @@ export default function BuilderWorkspace({ projectId }: BuilderWorkspaceProps) {
                 onClick={refreshPreview}
                 className="rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-sm text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
               >
-                Önizlemeyi yenile
+                {useExternalPreview ? "Siteyi aç" : "Önizlemeyi yenile"}
               </button>
             </div>
           </div>
 
           <div className="relative flex-1 p-3">
             {showLivePreview ? (
-              <iframe
-                key={previewCacheBuster}
-                title="WordPress önizleme"
-                src={previewUrl}
-                className={`h-full w-full rounded-xl border border-zinc-300 bg-white shadow-sm transition-[filter,transform] duration-500 ease-out dark:border-zinc-700 ${
-                  previewOverlayActive || brandSaving
-                    ? "scale-[0.998] blur-[3px]"
-                    : "scale-100 blur-0"
-                }`}
-              />
+              useExternalPreview ? (
+                <ExternalSitePreview
+                  siteTitle={project.siteTitle}
+                  siteUrl={project.siteUrl}
+                  primaryColor={project.suggestedPrimaryColor}
+                />
+              ) : (
+                <iframe
+                  key={previewCacheBuster}
+                  title="WordPress önizleme"
+                  src={previewUrl}
+                  className={`h-full w-full rounded-xl border border-zinc-300 bg-white shadow-sm transition-[filter,transform] duration-500 ease-out dark:border-zinc-700 ${
+                    previewOverlayActive || brandSaving
+                      ? "scale-[0.998] blur-[3px]"
+                      : "scale-100 blur-0"
+                  }`}
+                />
+              )
             ) : (
               <div className="flex h-full w-full flex-col items-center justify-center rounded-xl border border-zinc-300 bg-white px-6 text-center shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
                 <span className="inline-block h-8 w-8 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-700 dark:border-zinc-600 dark:border-t-zinc-200" />
