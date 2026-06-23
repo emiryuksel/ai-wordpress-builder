@@ -9,6 +9,8 @@ const REWRITE_CONTENT_TYPES = new Set([
   "application/javascript",
   "text/javascript",
   "application/json",
+  "application/xml",
+  "text/xml",
 ]);
 
 const HOP_BY_HOP_HEADERS = new Set([
@@ -44,6 +46,39 @@ export function resolveUpstreamOrigin(project: Project): string {
   }
 
   return buildWordPressSiteUrl(project.hostPort);
+}
+
+function collectUpstreamOrigins(project: Project): string[] {
+  const origins = new Set<string>();
+  const primary = resolveUpstreamOrigin(project).replace(/\/$/, "");
+  origins.add(primary);
+
+  const fromPort = buildWordPressSiteUrl(project.hostPort).replace(/\/$/, "");
+  origins.add(fromPort);
+
+  origins.add(`http://127.0.0.1:${project.hostPort}`);
+  origins.add(`http://localhost:${project.hostPort}`);
+
+  try {
+    const host = new URL(primary).host;
+    origins.add(`//${host}`);
+    origins.add(`http://${host}`);
+    origins.add(`https://${host}`);
+  } catch {
+    // ignore
+  }
+
+  try {
+    const malformed = new URL(project.siteUrl);
+    if (malformed.hostname.startsWith("=")) {
+      const fixed = malformed.hostname.replace(/^=+/, "");
+      origins.add(`http://${fixed}:${project.hostPort}`);
+    }
+  } catch {
+    // ignore
+  }
+
+  return [...origins].sort((a, b) => b.length - a.length);
 }
 
 function buildProxyBase(request: Request, projectId: string): string {
@@ -86,22 +121,125 @@ function filterRequestHeaders(headers: Headers): Headers {
   return filtered;
 }
 
+function isAlreadyProxied(value: string, proxy: string): boolean {
+  return (
+    value.includes(`${proxy}/wp-content`) ||
+    value.includes(`${proxy}/wp-includes`)
+  );
+}
+
+function rewriteAbsoluteUrls(
+  text: string,
+  origins: string[],
+  proxy: string,
+): string {
+  let result = text;
+
+  for (const origin of origins) {
+    if (!origin || origin === proxy) {
+      continue;
+    }
+    result = result.replaceAll(origin, proxy);
+  }
+
+  return result;
+}
+
+function rewriteWpRootPath(path: string, proxy: string): string {
+  const cleanProxy = proxy.replace(/\/$/, "");
+  if (path.startsWith(cleanProxy)) {
+    return path;
+  }
+  return `${cleanProxy}${path}`;
+}
+
+function rewriteSrcsetValue(
+  value: string,
+  origins: string[],
+  proxy: string,
+): string {
+  return value
+    .split(",")
+    .map((entry) => {
+      const trimmed = entry.trim();
+      const spaceIndex = trimmed.search(/\s+\d/);
+      const url =
+        spaceIndex === -1 ? trimmed : trimmed.slice(0, spaceIndex).trim();
+      const descriptor =
+        spaceIndex === -1 ? "" : trimmed.slice(spaceIndex).trim();
+
+      let nextUrl = url;
+      if (url.startsWith("/")) {
+        nextUrl = rewriteWpRootPath(url, proxy);
+      } else {
+        for (const origin of origins) {
+          if (url.startsWith(origin)) {
+            nextUrl = `${proxy}${url.slice(origin.length)}`;
+            break;
+          }
+        }
+      }
+
+      return descriptor ? `${nextUrl} ${descriptor}` : nextUrl;
+    })
+    .join(", ");
+}
+
+function rewriteRootRelativeWpUrls(text: string, proxy: string): string {
+  const cleanProxy = proxy.replace(/\/$/, "");
+
+  return text.replace(
+    /(^|["'(=\s])(\/(?:wp-content|wp-includes|wp-json)[^"'()\s,>]*)/g,
+    (match, prefix, path) => {
+      if (path.startsWith(cleanProxy) || isAlreadyProxied(path, proxy)) {
+        return match;
+      }
+      return `${prefix}${cleanProxy}${path}`;
+    },
+  );
+}
+
 function rewriteBody(
   body: string,
-  upstreamOrigin: string,
+  project: Project,
   proxyBase: string,
 ): string {
-  const upstream = upstreamOrigin.replace(/\/$/, "");
   const proxy = proxyBase.replace(/\/$/, "");
-  let result = body.replaceAll(upstream, proxy);
+  const origins = collectUpstreamOrigins(project);
 
-  // Kök-göreli WordPress yolları (/wp-content, /wp-includes, …)
+  let result = rewriteAbsoluteUrls(body, origins, proxy);
+
   result = result.replace(
-    /(\s(?:href|src|action)=["'])\/(?!\/)/gi,
-    `$1${proxy}/`,
+    /\bsrcset=(["'])(.*?)\1/gi,
+    (match, quote, value) => {
+      if (isAlreadyProxied(value, proxy)) {
+        return match;
+      }
+      return `srcset=${quote}${rewriteSrcsetValue(value, origins, proxy)}${quote}`;
+    },
   );
-  result = result.replace(/url\(\s*\/(?!\/)/gi, `url(${proxy}/`);
-  result = result.replace(/url\(\s*["']\/(?!\/)/gi, `url("${proxy}/`);
+
+  result = result.replace(
+    /\b(?:href|src|action|content|poster|data-src|data-lazy-src|data-bg|data-background|imagesrcset)=(["'])(\/(?!\/)[^"']*)\2/gi,
+    (match, _quote, path) => {
+      if (!path.startsWith("/wp-") || isAlreadyProxied(path, proxy)) {
+        return match;
+      }
+      return match.replace(path, rewriteWpRootPath(path, proxy));
+    },
+  );
+
+  result = result.replace(
+    /url\(\s*(["']?)(\/(?:wp-content|wp-includes)[^"')]*)\1\s*\)/gi,
+    (match, quote, path) => {
+      if (isAlreadyProxied(path, proxy)) {
+        return match;
+      }
+      return `url(${quote}${rewriteWpRootPath(path, proxy)}${quote})`;
+    },
+  );
+
+  result = rewriteRootRelativeWpUrls(result, proxy);
 
   return result;
 }
@@ -116,6 +254,10 @@ function rewriteLocation(
 
   if (location.startsWith(upstream)) {
     return `${proxy}${location.slice(upstream.length)}`;
+  }
+
+  if (location.startsWith("/wp-")) {
+    return `${proxy}${location}`;
   }
 
   if (location.startsWith("/")) {
@@ -202,7 +344,7 @@ export async function proxySitePreviewRequest(
   }
 
   const rawBody = await upstreamResponse.text();
-  const rewritten = rewriteBody(rawBody, upstreamOrigin, proxyBase);
+  const rewritten = rewriteBody(rawBody, project, proxyBase);
 
   responseHeaders.delete("content-length");
   return new NextResponse(rewritten, {
