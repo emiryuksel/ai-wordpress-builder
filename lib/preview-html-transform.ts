@@ -185,6 +185,7 @@ export async function transformPreviewHtml(
   fetchText: (upstreamPath: string) => Promise<string>,
 ): Promise<string> {
   let result = rewriteTextForPreview(html, project, proxyBase);
+  result = result.replace(/<base\b[^>]*>/gi, "");
   result = rewriteHtmlAttributes(result, project, proxyBase);
 
   const linkTags = [...result.matchAll(/<link\b[^>]*>/gi)].map((match) => match[0]);

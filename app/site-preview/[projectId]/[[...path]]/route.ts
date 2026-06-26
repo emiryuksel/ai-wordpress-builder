@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
 import { WP_PREVIEW_COOKIE } from "@/lib/preview-constants";
 import { getProjectForUser, ProjectAccessError } from "@/lib/project-access";
+import { ensureProjectSiteUrl } from "@/lib/project-site-url";
 import { getProject } from "@/lib/project-store";
 import {
   isPreviewAssetPath,
@@ -60,7 +61,9 @@ async function handle(
       );
     }
 
-    return proxySitePreviewRequest(request, project, path ?? []);
+    const syncedProject = await ensureProjectSiteUrl(project);
+
+    return proxySitePreviewRequest(request, syncedProject, path ?? []);
   } catch (error) {
     if (error instanceof ProjectAccessError) {
       return NextResponse.json({ error: error.message }, { status: error.status });

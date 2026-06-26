@@ -45,16 +45,6 @@ export function buildSitePreviewPath(
 }
 
 export function resolveUpstreamOrigin(project: Project): string {
-  try {
-    const url = new URL(project.siteUrl);
-    if (url.hostname && !url.hostname.startsWith("=")) {
-      const port = url.port || String(project.hostPort);
-      return `${url.protocol}//${url.hostname}:${port}`;
-    }
-  } catch {
-    // Geçersiz siteUrl — hostPort ile yeniden oluştur.
-  }
-
   return buildWordPressSiteUrl(project.hostPort);
 }
 

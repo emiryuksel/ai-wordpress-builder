@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getAuthContext, requireSessionUser } from "@/lib/auth";
+import { resolveProjectSiteUrl } from "@/lib/project-site-url";
 import { listProjectsByUserId } from "@/lib/project-store";
 
 export const runtime = "nodejs";
@@ -33,7 +34,7 @@ export async function GET() {
         siteType: project.siteType,
         status: project.status,
         statusLabel: statusLabel(project.status),
-        siteUrl: project.siteUrl,
+        siteUrl: resolveProjectSiteUrl(project),
         updatedAt: project.updatedAt,
         createdAt: project.createdAt,
       })),

@@ -3,6 +3,7 @@ import path from "node:path";
 
 import type { Project } from "@/lib/project-store";
 import { getRuntimeRoot } from "@/lib/data-paths";
+import { resolveProjectSiteUrl } from "@/lib/project-site-url";
 import type { WordPressAccessInfo } from "@/lib/support";
 
 function parseSiteConfigValue(content: string, key: string): string | null {
@@ -51,7 +52,7 @@ export async function getWordPressAccessForProject(
   }
 
   if (project.wpAdminUser && project.wpAdminPassword) {
-    const siteUrl = project.siteUrl.replace(/\/$/, "");
+    const siteUrl = resolveProjectSiteUrl(project).replace(/\/$/, "");
     return {
       siteUrl,
       adminUrl: `${siteUrl}/wp-admin`,
@@ -60,7 +61,10 @@ export async function getWordPressAccessForProject(
     };
   }
 
-  return readWordPressCredentials(project.id, project.siteUrl);
+  return readWordPressCredentials(
+    project.id,
+    resolveProjectSiteUrl(project),
+  );
 }
 
 export async function persistWordPressCredentials(

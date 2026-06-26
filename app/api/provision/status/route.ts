@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { isWordPressReachable } from "@/lib/docker-manager";
+import { ensureProjectSiteUrl, resolveProjectSiteUrl } from "@/lib/project-site-url";
 import { getProject } from "@/lib/project-store";
 import {
   getStatusMessage,
@@ -44,21 +45,23 @@ export async function GET(request: Request) {
 
   const reachable = await isWordPressReachable(project.hostPort, projectId);
   const ready = project.status === "ready" && reachable;
+  const resolvedProject =
+    ready && reachable ? await ensureProjectSiteUrl(project) : project;
 
   return NextResponse.json({
-    projectId: project.id,
-    status: project.status,
-    hostPort: project.hostPort,
-    siteUrl: project.siteUrl,
+    projectId: resolvedProject.id,
+    status: resolvedProject.status,
+    hostPort: resolvedProject.hostPort,
+    siteUrl: resolveProjectSiteUrl(resolvedProject),
     ready,
     reachable,
     message: getStatusMessage(
-      project.status,
+      resolvedProject.status,
       elapsedSeconds,
-      project.siteType,
-      project.suggestedPlugins,
-      project.prompt,
+      resolvedProject.siteType,
+      resolvedProject.suggestedPlugins,
+      resolvedProject.prompt,
     ),
-    error: project.error ?? null,
+    error: resolvedProject.error ?? null,
   });
 }

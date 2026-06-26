@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getSessionUser } from "@/lib/auth";
 import { getProjectForUser, ProjectAccessError } from "@/lib/project-access";
+import { ensureProjectSiteUrl } from "@/lib/project-site-url";
 import { isCorporateProject } from "@/lib/site-type";
 import { getWordPressAccessForProject } from "@/lib/wordpress-access";
 
@@ -20,7 +21,9 @@ export async function GET(_request: Request, context: RouteContext) {
   }
 
   try {
-    const project = await getProjectForUser(id, user.id);
+    const project = await ensureProjectSiteUrl(
+      await getProjectForUser(id, user.id),
+    );
     const wordpressAccess = await getWordPressAccessForProject(project);
 
     return NextResponse.json({

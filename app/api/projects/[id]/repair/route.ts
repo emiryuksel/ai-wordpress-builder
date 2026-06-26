@@ -4,6 +4,7 @@ import { getSessionUser } from "@/lib/auth";
 import { isBlogProject, repairBlogSite } from "@/lib/blog-content";
 import { isCorporateProject, repairCorporateSite } from "@/lib/corporate-content";
 import { getProjectForUser, ProjectAccessError } from "@/lib/project-access";
+import { ensureProjectSiteUrl, resolveProjectSiteUrl, syncWordPressSiteUrl } from "@/lib/project-site-url";
 import { isEcommerceProject } from "@/lib/site-type";
 import { repairEcommerceSite } from "@/lib/wp-cli";
 export const runtime = "nodejs";
@@ -23,7 +24,9 @@ export async function POST(_request: Request, context: RouteContext) {
 
   let project;
   try {
-    project = await getProjectForUser(projectId, user.id);
+    project = await ensureProjectSiteUrl(
+      await getProjectForUser(projectId, user.id),
+    );
   } catch (error) {
     if (error instanceof ProjectAccessError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
@@ -37,6 +40,8 @@ export async function POST(_request: Request, context: RouteContext) {
       { status: 409 },
     );
   }
+
+  void syncWordPressSiteUrl(project.id, resolveProjectSiteUrl(project));
 
   try {
     if (isBlogProject(project)) {

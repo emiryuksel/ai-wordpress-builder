@@ -154,10 +154,22 @@ sudo ufw status | grep 800
 - `docker ps` boşsa → Docker socket volume eksik veya izin hatası (Coolify loglarına bakın)
 - `curl` host'ta çalışıyor ama tarayıcıda açılmıyorsa → firewall (aşağıdaki bölüm)
 
-### Önizleme boş / site açılmıyor
+### Önizleme boş / bozuk (404, CSS yüklenmiyor, çift menü)
 
-- `WORDPRESS_PUBLIC_HOST` sunucunun **dışarıdan erişilebilir IP/domain** olmalı (`localhost` production'da çalışmaz)
-- Firewall'da `8001-8999` açık mı
+HTTPS builder (`https://wp.withsolver.com`) üzerinde önizleme, WordPress'i doğrudan iframe ile değil **`/site-preview/{projeId}` proxy** üzerinden yükler. Böylece mixed content engeli olmaz ve CSS/görseller aynı origin üzerinden gelir.
+
+| Belirti | Çözüm |
+|---------|--------|
+| Önizleme paneli boş veya 404 | `WORDPRESS_PUBLIC_HOST` sunucunun dışarıdan erişilebilir IP/domain olmalı (`localhost` production'da çalışmaz) |
+| CSS/görseller eksik | Coolify'da **Redeploy** + tarayıcıda hard refresh (`Ctrl+Shift+R`) |
+| Site linki `http://localhost:800x` gösteriyor | `WORDPRESS_PUBLIC_HOST` ayarlayıp redeploy; proje açıldığında URL otomatik düzelir |
+| "Siteyi görüntüle" çalışıyor, panel bozuk | Firewall'da `8001-8999` açık mı kontrol edin |
+
+Kontrol listesi:
+
+- `APP_URL` tam HTTPS domain olmalı: `https://wp.withsolver.com` (sonunda `/` yok)
+- `WORDPRESS_PUBLIC_HOST` = sunucu IP (ör. `188.34.207.213`) — değerin başında `=` olmamalı
+- `WORDPRESS_URL_SCHEME=http` (port tabanlı WP erişimi için)
 - Coolify sunucusunda `curl -I http://127.0.0.1:8001` ile WP container yanıt veriyor mu
 
 ### Oturum / giriş sorunu
