@@ -4,7 +4,7 @@ import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 
 import WordPressAccessCard from "@/app/components/wordpress-access-card";
-import { buildSitePreviewPath, buildSitePublicPath } from "@/lib/site-preview-proxy";
+import { buildSitePreviewPath, buildSitePublicPath } from "@/lib/preview-paths";
 import type { WordPressAccessInfo } from "@/lib/support";
 
 type ProjectResponse = {

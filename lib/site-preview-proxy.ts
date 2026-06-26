@@ -13,6 +13,8 @@ import {
 } from "@/lib/preview-html-transform";
 import { WP_PREVIEW_COOKIE } from "@/lib/preview-constants";
 
+export { buildSitePreviewPath, buildSitePublicPath } from "@/lib/preview-paths";
+
 const REWRITE_CONTENT_TYPES = new Set([
   "text/html",
   "text/css",
@@ -35,23 +37,6 @@ const HOP_BY_HOP_HEADERS = new Set([
   "content-encoding",
   "content-length",
 ]);
-
-export function buildSitePublicPath(
-  slug: string,
-  cacheBuster?: number,
-): string {
-  const suffix = cacheBuster ? `?_preview=${cacheBuster}` : "";
-  return `/${slug}${suffix}`;
-}
-
-/** @deprecated buildSitePublicPath(slug) kullanın. */
-export function buildSitePreviewPath(
-  projectId: string,
-  cacheBuster?: number,
-): string {
-  const suffix = cacheBuster ? `?_preview=${cacheBuster}` : "";
-  return `/site-preview/${projectId}${suffix}`;
-}
 
 export function resolveUpstreamOrigin(project: Project): string {
   return resolveProjectSiteUrl(project);
