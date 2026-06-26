@@ -1,5 +1,8 @@
 import { execWpCli } from "@/lib/docker-manager";
-import { buildProjectPublicUrl } from "@/lib/public-url";
+import {
+  buildProjectPublicUrl,
+  resolveWordPressInternalSiteUrl,
+} from "@/lib/public-url";
 import {
   allocateUniqueSlugFromBrand,
   buildInitialProjectSlug,
@@ -44,13 +47,7 @@ export async function applyBrandSlug(
   }
 
   const updated = await updateProject(project.id, { slug: newSlug, siteUrl });
-  const result = updated ?? { ...project, slug: newSlug, siteUrl };
-
-  if (result.status === "ready") {
-    await syncWordPressSiteUrl(result.id, siteUrl);
-  }
-
-  return result;
+  return updated ?? { ...project, slug: newSlug, siteUrl };
 }
 
 /** projects.json slug/siteUrl ve WordPress siteurl/home değerlerini eşitle. */
@@ -65,20 +62,23 @@ export async function ensureProjectSiteUrl(project: Project): Promise<Project> {
   }
 
   if (result.status === "ready") {
-    void syncWordPressSiteUrl(result.id, canonical);
+    void syncWordPressSiteUrl(result);
   }
 
   return result;
 }
 
+/** WordPress siteurl/home değerlerini internal URL ile eşitle (public slug ayrı kalır). */
 export async function syncWordPressSiteUrl(
-  projectId: string,
-  siteUrl: string,
+  project: Pick<Project, "id" | "hostPort">,
 ): Promise<void> {
-  const normalized = siteUrl.replace(/\/$/, "");
+  const normalized = resolveWordPressInternalSiteUrl(project.hostPort).replace(
+    /\/$/,
+    "",
+  );
 
   try {
-    const current = (await execWpCli(projectId, ["option", "get", "siteurl"]))
+    const current = (await execWpCli(project.id, ["option", "get", "siteurl"]))
       .trim()
       .replace(/\/$/, "");
 
@@ -86,8 +86,8 @@ export async function syncWordPressSiteUrl(
       return;
     }
 
-    await execWpCli(projectId, ["option", "update", "siteurl", normalized]);
-    await execWpCli(projectId, ["option", "update", "home", normalized]);
+    await execWpCli(project.id, ["option", "update", "siteurl", normalized]);
+    await execWpCli(project.id, ["option", "update", "home", normalized]);
   } catch {
     // WP henüz hazır değil veya container erişilemiyor.
   }

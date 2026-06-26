@@ -4,7 +4,7 @@ import { getSessionUser } from "@/lib/auth";
 import { isBlogProject, repairBlogSite } from "@/lib/blog-content";
 import { isCorporateProject, repairCorporateSite } from "@/lib/corporate-content";
 import { getProjectForUser, ProjectAccessError } from "@/lib/project-access";
-import { ensureProjectSiteUrl, resolveProjectSiteUrl, syncWordPressSiteUrl } from "@/lib/project-site-url";
+import { ensureProjectSiteUrl, syncWordPressSiteUrl } from "@/lib/project-site-url";
 import { isEcommerceProject } from "@/lib/site-type";
 import { repairEcommerceSite } from "@/lib/wp-cli";
 export const runtime = "nodejs";
@@ -41,7 +41,7 @@ export async function POST(_request: Request, context: RouteContext) {
     );
   }
 
-  void syncWordPressSiteUrl(project.id, resolveProjectSiteUrl(project));
+  void syncWordPressSiteUrl(project);
 
   try {
     if (isBlogProject(project)) {

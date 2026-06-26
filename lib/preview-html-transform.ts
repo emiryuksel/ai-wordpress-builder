@@ -505,11 +505,14 @@ export async function transformPreviewHtml(
   project: Project,
   proxyBase: string,
   fetchCss: (upstreamPath: string) => Promise<string>,
+  options?: { lightweight?: boolean },
 ): Promise<string> {
   let result = rewriteTextForPreview(html, project, proxyBase);
   result = result.replace(/<base\b[^>]*>/gi, "");
   result = rewriteHtmlAttributes(result, project, proxyBase);
-  result = await inlineStylesheets(result, project, proxyBase, fetchCss);
-  result = injectPreviewLayoutCss(result);
+  if (!options?.lightweight) {
+    result = await inlineStylesheets(result, project, proxyBase, fetchCss);
+    result = injectPreviewLayoutCss(result);
+  }
   return result;
 }

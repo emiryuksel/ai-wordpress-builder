@@ -40,6 +40,14 @@ export function buildProjectPublicUrl(slug: string): string {
 }
 
 /**
+ * WordPress DB siteurl/home ve proxy upstream Host için sabit internal URL.
+ * Public slug URL'sinden ayrı tutulur; redirect döngüsü önlenir.
+ */
+export function resolveWordPressInternalSiteUrl(hostPort: number): string {
+  return `http://127.0.0.1:${hostPort}`;
+}
+
+/**
  * Container içinden WP'ye erişim (health check, docker upstream).
  * Port tabanlı internal URL — public slug URL'sinden farklıdır.
  */

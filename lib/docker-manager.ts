@@ -12,6 +12,7 @@ import { listProjects } from "@/lib/project-store";
 import {
   buildWordPressInternalUrl,
   getWordPressReachabilityHosts,
+  resolveWordPressInternalSiteUrl,
 } from "@/lib/public-url";
 
 const ROOT_DIR = process.cwd();
@@ -344,7 +345,7 @@ export async function provisionProject(
   const suggestedTheme = config.suggestedTheme ?? "astra";
   const suggestedPlugins = config.suggestedPlugins ?? [];
   const siteTitle = config.siteTitle ?? "AI WordPress Site";
-  const siteUrl = config.siteUrl ?? buildWordPressInternalUrl(hostPort);
+  const siteUrl = resolveWordPressInternalSiteUrl(hostPort);
   const userPrompt = config.userPrompt ?? "";
 
   const { projectDir, composePath, wordpressContainer } =

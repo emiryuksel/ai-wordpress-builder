@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { ensureProjectSiteUrl } from "@/lib/project-site-url";
 import { getProjectBySlug } from "@/lib/project-store";
 import { isReservedSlug } from "@/lib/slug";
 import { proxySitePreviewRequest } from "@/lib/site-preview-proxy";
@@ -35,8 +34,9 @@ async function handle(
     );
   }
 
-  const syncedProject = await ensureProjectSiteUrl(project);
-  return proxySitePreviewRequest(request, syncedProject, path ?? []);
+  return proxySitePreviewRequest(request, project, path ?? [], {
+    mode: "public",
+  });
 }
 
 export const GET = handle;

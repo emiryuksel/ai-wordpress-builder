@@ -2,8 +2,10 @@ import { NextResponse } from "next/server";
 
 import {
   getWordPressUpstreamHosts,
+  getSitePublicOrigin,
+  resolveWordPressInternalSiteUrl,
 } from "@/lib/public-url";
-import { resolveProjectSiteUrl } from "@/lib/project-site-url";
+import { resolveProjectSiteUrl, syncWordPressSiteUrl } from "@/lib/project-site-url";
 import type { Project } from "@/lib/project-store";
 
 import {
@@ -38,8 +40,13 @@ const HOP_BY_HOP_HEADERS = new Set([
   "content-length",
 ]);
 
+export interface ProxySitePreviewOptions {
+  /** Public slug sayfalarında CSS inline ve layout fix atlanır. */
+  mode?: "preview" | "public";
+}
+
 export function resolveUpstreamOrigin(project: Project): string {
-  return resolveProjectSiteUrl(project);
+  return resolveWordPressInternalSiteUrl(project.hostPort);
 }
 
 function buildProxyBase(request: Request, project: Project): string {
@@ -49,14 +56,6 @@ function buildProxyBase(request: Request, project: Project): string {
     return `${origin}/${slug}`;
   }
   return `${origin}/site-preview/${project.id}`;
-}
-
-function getUpstreamHostHeader(project: Project): string {
-  try {
-    return new URL(resolveUpstreamOrigin(project)).host;
-  } catch {
-    return `127.0.0.1:${project.hostPort}`;
-  }
 }
 
 function buildUpstreamPath(
@@ -77,15 +76,16 @@ function buildUpstreamRequestHeaders(
   project: Project,
 ): Headers {
   const filtered = filterRequestHeaders(request.headers);
-  const publicUrl = resolveProjectSiteUrl(project);
+  const internal = resolveWordPressInternalSiteUrl(project.hostPort);
 
   try {
-    const parsed = new URL(publicUrl);
+    const parsed = new URL(internal);
     filtered.set("Host", parsed.host);
-    filtered.set("X-Forwarded-Host", parsed.host);
-    filtered.set("X-Forwarded-Proto", parsed.protocol.replace(/:$/, ""));
+    filtered.set("X-Forwarded-Proto", "https");
+    const publicUrl = resolveProjectSiteUrl(project);
+    filtered.set("X-Forwarded-Host", new URL(publicUrl).host);
   } catch {
-    filtered.set("Host", getUpstreamHostHeader(project));
+    filtered.set("Host", `127.0.0.1:${project.hostPort}`);
   }
 
   return filtered;
@@ -190,11 +190,22 @@ async function fetchUpstream(
         method: request.method,
         headers: buildUpstreamRequestHeaders(request, project),
         body: requestBody,
-        redirect: "follow",
+        redirect: "manual",
       });
 
       if (response.status >= 200 && response.status < 300) {
         return response;
+      }
+
+      if (
+        (response.status === 301 ||
+          response.status === 302 ||
+          response.status === 307 ||
+          response.status === 308) &&
+        !fallbackResponse
+      ) {
+        fallbackResponse = response;
+        continue;
       }
 
       if (response.status > 0 && !fallbackResponse) {
@@ -224,18 +235,50 @@ export async function fetchUpstreamText(
   return response.text();
 }
 
+function isRedirectStatus(status: number): boolean {
+  return status === 301 || status === 302 || status === 307 || status === 308;
+}
+
+function isPublicSiteRedirect(location: string, project: Project): boolean {
+  const trimmed = location.trim();
+  if (!trimmed) {
+    return false;
+  }
+
+  try {
+    const publicUrl = resolveProjectSiteUrl(project);
+    if (trimmed.startsWith(publicUrl)) {
+      return true;
+    }
+    const origin = getSitePublicOrigin();
+    return trimmed.startsWith(origin);
+  } catch {
+    return false;
+  }
+}
+
 export async function proxySitePreviewRequest(
   request: Request,
   project: Project,
   pathSegments: string[],
+  options: ProxySitePreviewOptions = {},
 ): Promise<NextResponse> {
   const proxyBase = buildProxyBase(request, project);
   const pathWithSearch = buildUpstreamPath(request, pathSegments);
+  const lightweight = options.mode === "public";
 
   let upstreamResponse: Response;
 
   try {
     upstreamResponse = await fetchUpstream(project, pathWithSearch, request);
+
+    if (isRedirectStatus(upstreamResponse.status)) {
+      const redirectLocation = upstreamResponse.headers.get("location") ?? "";
+      if (isPublicSiteRedirect(redirectLocation, project)) {
+        await syncWordPressSiteUrl(project);
+        upstreamResponse = await fetchUpstream(project, pathWithSearch, request);
+      }
+    }
   } catch {
     return NextResponse.json(
       { error: "WordPress önizlemesi yüklenemedi." },
@@ -270,8 +313,12 @@ export async function proxySitePreviewRequest(
 
   const rawBody = await upstreamResponse.text();
   const rewritten = contentType.includes("text/html")
-    ? await transformPreviewHtml(rawBody, project, proxyBase, (upstreamPath) =>
-        fetchUpstreamText(project, upstreamPath),
+    ? await transformPreviewHtml(
+        rawBody,
+        project,
+        proxyBase,
+        (upstreamPath) => fetchUpstreamText(project, upstreamPath),
+        { lightweight },
       )
     : rewriteTextForPreview(rawBody, project, proxyBase);
 
