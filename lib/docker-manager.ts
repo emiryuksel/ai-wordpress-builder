@@ -548,6 +548,54 @@ export async function execWpCli(
   return stdout.trim();
 }
 
+/** HTTP upstream başarısız olursa WP container içinden doğrudan sayfa çeker. */
+export async function fetchWordPressFromContainer(
+  projectId: string,
+  pathWithSearch: string,
+  timeoutMs = 20_000,
+): Promise<Response | null> {
+  const containerName = `${projectId}_wordpress`;
+  const path = pathWithSearch.startsWith("/")
+    ? pathWithSearch
+    : `/${pathWithSearch}`;
+  const internalUrl = `http://127.0.0.1${path}`;
+
+  try {
+    const { stdout } = await execFileAsync(
+      "docker",
+      [
+        "exec",
+        containerName,
+        "php",
+        "-r",
+        [
+          `$u=${JSON.stringify(internalUrl)};`,
+          "$c=@file_get_contents($u);",
+          "if($c===false){fwrite(STDERR,'fetch failed');exit(1);}",
+          "$h=$http_response_header??[];",
+          "foreach($h as $l){if(preg_match('/^HTTP\\/\\S+ (\\d+)/',$l,$m)){echo $m[1].\"\\n\";break;}}",
+          "echo $c;",
+        ].join(""),
+      ],
+      { timeout: timeoutMs, maxBuffer: 50 * 1024 * 1024 },
+    );
+
+    const newlineIndex = stdout.indexOf("\n");
+    const status =
+      newlineIndex > 0
+        ? Number.parseInt(stdout.slice(0, newlineIndex), 10) || 200
+        : 200;
+    const body = newlineIndex >= 0 ? stdout.slice(newlineIndex + 1) : stdout;
+
+    return new Response(body, {
+      status,
+      headers: { "content-type": "text/html; charset=UTF-8" },
+    });
+  } catch {
+    return null;
+  }
+}
+
 export async function execWpCliSh(
   projectId: string,
   shellCommand: string,

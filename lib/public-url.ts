@@ -40,11 +40,29 @@ export function buildProjectPublicUrl(slug: string): string {
 }
 
 /**
- * WordPress DB siteurl/home ve proxy upstream Host için sabit internal URL.
+ * Container içinden host'taki WP portlarına erişim için hostname.
+ * Coolify'da uygulama container'ı host portlarına 127.0.0.1 ile değil,
+ * host.docker.internal ile ulaşır.
+ */
+export function getWordPressProxyHost(): string {
+  const explicit = sanitizeEnvValue(process.env.WORDPRESS_REACHABILITY_HOST);
+  if (explicit) {
+    return explicit;
+  }
+
+  if (process.env.NODE_ENV === "production") {
+    return "host.docker.internal";
+  }
+
+  return "127.0.0.1";
+}
+
+/**
+ * WordPress DB siteurl/home ve proxy upstream Host için internal URL.
  * Public slug URL'sinden ayrı tutulur; redirect döngüsü önlenir.
  */
 export function resolveWordPressInternalSiteUrl(hostPort: number): string {
-  return `http://127.0.0.1:${hostPort}`;
+  return `http://${getWordPressProxyHost()}:${hostPort}`;
 }
 
 /**
@@ -94,7 +112,10 @@ export function getWordPressReachabilityHosts(): string[] {
  */
 export function getWordPressUpstreamHosts(): string[] {
   const hosts = getWordPressReachabilityHosts();
-  const preferred = ["127.0.0.1", "host.docker.internal"];
+  const preferred =
+    process.env.NODE_ENV === "production"
+      ? ["host.docker.internal", "127.0.0.1"]
+      : ["127.0.0.1", "host.docker.internal"];
   const ordered = [
     ...preferred.filter((host) => hosts.includes(host)),
     ...hosts.filter((host) => !preferred.includes(host)),

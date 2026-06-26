@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 
+import { fetchWordPressFromContainer } from "@/lib/docker-manager";
 import {
   getWordPressUpstreamHosts,
   getSitePublicOrigin,
+  getWordPressProxyHost,
   resolveWordPressInternalSiteUrl,
 } from "@/lib/public-url";
 import { resolveProjectSiteUrl, syncWordPressSiteUrl } from "@/lib/project-site-url";
@@ -45,12 +47,20 @@ export interface ProxySitePreviewOptions {
   mode?: "preview" | "public";
 }
 
+const UPSTREAM_FETCH_TIMEOUT_MS = 12_000;
+
 export function resolveUpstreamOrigin(project: Project): string {
   return resolveWordPressInternalSiteUrl(project.hostPort);
 }
 
 function buildProxyBase(request: Request, project: Project): string {
   const origin = new URL(request.url).origin;
+  const pathname = new URL(request.url).pathname;
+
+  if (pathname.includes("/site-preview/")) {
+    return `${origin}/site-preview/${project.id}`;
+  }
+
   const slug = project.slug;
   if (slug) {
     return `${origin}/${slug}`;
@@ -74,18 +84,21 @@ function buildUpstreamPath(
 function buildUpstreamRequestHeaders(
   request: Request,
   project: Project,
+  upstreamHost?: string,
 ): Headers {
   const filtered = filterRequestHeaders(request.headers);
-  const internal = resolveWordPressInternalSiteUrl(project.hostPort);
+  const hostHeader =
+    upstreamHost ??
+    new URL(resolveWordPressInternalSiteUrl(project.hostPort)).host;
+
+  filtered.set("Host", hostHeader);
+  filtered.set("X-Forwarded-Proto", "https");
 
   try {
-    const parsed = new URL(internal);
-    filtered.set("Host", parsed.host);
-    filtered.set("X-Forwarded-Proto", "https");
     const publicUrl = resolveProjectSiteUrl(project);
     filtered.set("X-Forwarded-Host", new URL(publicUrl).host);
   } catch {
-    filtered.set("Host", `127.0.0.1:${project.hostPort}`);
+    // ignore
   }
 
   return filtered;
@@ -153,6 +166,10 @@ function buildResponseHeaders(upstreamHeaders: Headers): Headers {
   return headers;
 }
 
+function isRedirectStatus(status: number): boolean {
+  return status === 301 || status === 302 || status === 307 || status === 308;
+}
+
 async function fetchUpstream(
   project: Project,
   pathWithSearch: string,
@@ -185,25 +202,30 @@ async function fetchUpstream(
     }
     tried.add(upstreamUrl);
 
+    const hostHeader = `${host}:${project.hostPort}`;
+
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(
+        () => controller.abort(),
+        UPSTREAM_FETCH_TIMEOUT_MS,
+      );
+
       const response = await fetch(upstreamUrl, {
         method: request.method,
-        headers: buildUpstreamRequestHeaders(request, project),
+        headers: buildUpstreamRequestHeaders(request, project, hostHeader),
         body: requestBody,
         redirect: "manual",
+        signal: controller.signal,
       });
+
+      clearTimeout(timeout);
 
       if (response.status >= 200 && response.status < 300) {
         return response;
       }
 
-      if (
-        (response.status === 301 ||
-          response.status === 302 ||
-          response.status === 307 ||
-          response.status === 308) &&
-        !fallbackResponse
-      ) {
+      if (isRedirectStatus(response.status) && !fallbackResponse) {
         fallbackResponse = response;
         continue;
       }
@@ -213,6 +235,19 @@ async function fetchUpstream(
       }
     } catch (error) {
       lastError = error;
+    }
+  }
+
+  if (
+    (request.method === "GET" || request.method === "HEAD") &&
+    !fallbackResponse
+  ) {
+    const dockerResponse = await fetchWordPressFromContainer(
+      project.id,
+      pathWithSearch,
+    );
+    if (dockerResponse) {
+      return dockerResponse;
     }
   }
 
@@ -235,10 +270,6 @@ export async function fetchUpstreamText(
   return response.text();
 }
 
-function isRedirectStatus(status: number): boolean {
-  return status === 301 || status === 302 || status === 307 || status === 308;
-}
-
 function isPublicSiteRedirect(location: string, project: Project): boolean {
   const trimmed = location.trim();
   if (!trimmed) {
@@ -255,6 +286,32 @@ function isPublicSiteRedirect(location: string, project: Project): boolean {
   } catch {
     return false;
   }
+}
+
+function needsSiteurlSync(location: string, project: Project): boolean {
+  const trimmed = location.trim();
+  if (!trimmed) {
+    return false;
+  }
+
+  try {
+    const internal = resolveWordPressInternalSiteUrl(project.hostPort).replace(
+      /\/$/,
+      "",
+    );
+    const normalized = trimmed.replace(/\/$/, "");
+    if (normalized === internal || normalized.startsWith(`${internal}/`)) {
+      return false;
+    }
+  } catch {
+    // ignore
+  }
+
+  return (
+    isPublicSiteRedirect(trimmed, project) ||
+    trimmed.includes(`127.0.0.1:${project.hostPort}`) ||
+    trimmed.includes(`${getWordPressProxyHost()}:${project.hostPort}`)
+  );
 }
 
 export async function proxySitePreviewRequest(
@@ -274,8 +331,11 @@ export async function proxySitePreviewRequest(
 
     if (isRedirectStatus(upstreamResponse.status)) {
       const redirectLocation = upstreamResponse.headers.get("location") ?? "";
-      if (isPublicSiteRedirect(redirectLocation, project)) {
-        await syncWordPressSiteUrl(project);
+      if (needsSiteurlSync(redirectLocation, project)) {
+        await Promise.race([
+          syncWordPressSiteUrl(project),
+          new Promise((resolve) => setTimeout(resolve, 8_000)),
+        ]);
         upstreamResponse = await fetchUpstream(project, pathWithSearch, request);
       }
     }

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 
 import WordPressAccessCard from "@/app/components/wordpress-access-card";
-import { buildSitePreviewPath, buildSitePublicPath } from "@/lib/preview-paths";
+import { buildSitePreviewPath } from "@/lib/preview-paths";
 import type { WordPressAccessInfo } from "@/lib/support";
 
 type ProjectResponse = {
@@ -589,9 +589,7 @@ export default function BuilderWorkspace({ projectId }: BuilderWorkspaceProps) {
     );
   }
 
-  const previewUrl = project.slug
-    ? buildSitePublicPath(project.slug, previewCacheBuster)
-    : buildSitePreviewPath(projectId, previewCacheBuster);
+  const previewUrl = buildSitePreviewPath(projectId, previewCacheBuster);
   const isSiteReady = project.status === "ready";
   const showLivePreview = isSiteReady && previewReachable;
   const previewColorLabel =
