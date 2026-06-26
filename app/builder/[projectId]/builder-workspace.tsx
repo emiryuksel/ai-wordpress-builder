@@ -856,13 +856,13 @@ export default function BuilderWorkspace({ projectId }: BuilderWorkspaceProps) {
             </div>
           </div>
 
-          <div className="relative flex-1 p-3">
+          <div className="relative flex-1 bg-zinc-100 p-4 dark:bg-zinc-950">
             {showLivePreview ? (
               <iframe
                 key={previewCacheBuster}
                 title="WordPress önizleme"
                 src={previewUrl}
-                className={`h-full w-full rounded-xl border border-zinc-300 bg-white shadow-sm transition-[filter,transform] duration-500 ease-out dark:border-zinc-700 ${
+                className={`mx-auto block h-full w-full max-w-[1280px] rounded-xl border border-zinc-300 bg-white shadow-sm transition-[filter,transform] duration-500 ease-out dark:border-zinc-700 ${
                   previewOverlayActive || brandSaving
                     ? "scale-[0.998] blur-[3px]"
                     : "scale-100 blur-0"

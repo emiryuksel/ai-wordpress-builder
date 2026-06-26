@@ -204,6 +204,18 @@ async function fetchUpstream(
   throw lastError ?? new Error("WordPress önizlemesi yüklenemedi.");
 }
 
+export async function fetchUpstreamText(
+  project: Project,
+  upstreamPath: string,
+): Promise<string> {
+  const response = await fetchUpstream(
+    project,
+    upstreamPath.startsWith("/") ? upstreamPath : `/${upstreamPath}`,
+    new Request("http://preview-local"),
+  );
+  return response.text();
+}
+
 export async function proxySitePreviewRequest(
   request: Request,
   project: Project,
@@ -250,7 +262,9 @@ export async function proxySitePreviewRequest(
 
   const rawBody = await upstreamResponse.text();
   const rewritten = contentType.includes("text/html")
-    ? await transformPreviewHtml(rawBody, project, proxyBase)
+    ? await transformPreviewHtml(rawBody, project, proxyBase, (upstreamPath) =>
+        fetchUpstreamText(project, upstreamPath),
+      )
     : rewriteTextForPreview(rawBody, project, proxyBase);
 
   responseHeaders.delete("content-length");
