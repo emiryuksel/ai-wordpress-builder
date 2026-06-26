@@ -41,6 +41,20 @@ export function getWordPressReachabilityHosts(): string[] {
   return [...new Set(hosts)];
 }
 
+/**
+ * Container içinden WordPress'e proxy istekleri için host sırası.
+ * Yerel docker portları, dış IP'den önce denenir (hairpin/NAT 404 önlenir).
+ */
+export function getWordPressUpstreamHosts(): string[] {
+  const hosts = getWordPressReachabilityHosts();
+  const preferred = ["127.0.0.1", "host.docker.internal"];
+  const ordered = [
+    ...preferred.filter((host) => hosts.includes(host)),
+    ...hosts.filter((host) => !preferred.includes(host)),
+  ];
+  return [...new Set(ordered)];
+}
+
 /** Ana uygulama kök URL'si (Coolify domain). */
 export function getAppPublicUrl(): string | null {
   const value =

@@ -5,6 +5,32 @@ function cleanProxy(proxyBase: string): string {
   return proxyBase.replace(/\/$/, "");
 }
 
+function getRewriteHostPatterns(project: Project): string[] {
+  const port = String(project.hostPort);
+  const origin = buildWordPressSiteUrl(project.hostPort);
+
+  try {
+    const parsed = new URL(origin);
+    return [
+      `localhost:${port}`,
+      `127.0.0.1:${port}`,
+      `${parsed.hostname}:${port}`,
+    ];
+  } catch {
+    return [`localhost:${port}`, `127.0.0.1:${port}`];
+  }
+}
+
+function matchesWordPressHost(
+  hostname: string,
+  urlPort: string,
+  project: Project,
+): boolean {
+  const wpPort = String(project.hostPort);
+  const effectivePort = urlPort || wpPort;
+  return getRewriteHostPatterns(project).includes(`${hostname}:${effectivePort}`);
+}
+
 export function rewriteUrlForPreview(
   url: string,
   project: Project,
@@ -29,7 +55,7 @@ export function rewriteUrlForPreview(
   if (trimmed.startsWith("//")) {
     try {
       const pseudo = new URL(`https:${trimmed}`);
-      if (pseudo.port === port || (!pseudo.port && port === "80")) {
+      if (matchesWordPressHost(pseudo.hostname, pseudo.port, project)) {
         return `${proxy}${pseudo.pathname}${pseudo.search}`;
       }
     } catch {
@@ -40,7 +66,11 @@ export function rewriteUrlForPreview(
   if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
     try {
       const parsed = new URL(trimmed);
-      if (parsed.port === port || (!parsed.port && port === "80")) {
+      if (
+        matchesWordPressHost(parsed.hostname, parsed.port, project) ||
+        parsed.port === port ||
+        (!parsed.port && port === "80")
+      ) {
         return `${proxy}${parsed.pathname}${parsed.search}`;
       }
     } catch {
@@ -62,8 +92,23 @@ export function rewriteTextForPreview(
 ): string {
   const proxy = cleanProxy(proxyBase);
   const port = project.hostPort;
+  const hostPatterns = getRewriteHostPatterns(project);
 
-  let result = text.replace(
+  let result = text;
+
+  for (const hostPattern of hostPatterns) {
+    const escaped = hostPattern.replace(/\./g, "\\.");
+    result = result.replace(
+      new RegExp(`https?:\\/\\/${escaped}(?=[/"'\\s>)])`, "gi"),
+      proxy,
+    );
+    result = result.replace(
+      new RegExp(`\\/\\/${escaped}(?=[/"'\\s>)])`, "gi"),
+      `//${new URL(proxy).host}`,
+    );
+  }
+
+  result = result.replace(
     new RegExp(`https?:\\/\\/[^"'\\s<>)]+:${port}(?=[/"'\\s>)])`, "gi"),
     proxy,
   );
@@ -91,44 +136,6 @@ export function rewriteTextForPreview(
   );
 
   return result;
-}
-
-function resolveUpstreamPath(href: string, project: Project): string | null {
-  const port = String(project.hostPort);
-
-  if (href.startsWith("/")) {
-    return href;
-  }
-
-  if (href.startsWith("http://") || href.startsWith("https://")) {
-    try {
-      const parsed = new URL(href);
-      if (parsed.port === port || (!parsed.port && port === "80")) {
-        return `${parsed.pathname}${parsed.search}`;
-      }
-    } catch {
-      return null;
-    }
-  }
-
-  if (href.startsWith("//")) {
-    try {
-      const parsed = new URL(`https:${href}`);
-      if (parsed.port === port || (!parsed.port && port === "80")) {
-        return `${parsed.pathname}${parsed.search}`;
-      }
-    } catch {
-      return null;
-    }
-  }
-
-  try {
-    const origin = buildWordPressSiteUrl(project.hostPort);
-    const parsed = new URL(href, `${origin}/`);
-    return `${parsed.pathname}${parsed.search}`;
-  } catch {
-    return null;
-  }
 }
 
 function rewriteSrcsetAttribute(
@@ -161,7 +168,7 @@ function rewriteHtmlAttributes(
 
   let result = html.replace(
     new RegExp(`\\b(${attrNames})=(["'])([^"']+)\\2`, "gi"),
-    (match, attr, quote, value) => {
+    (_match, attr, quote, value) => {
       if (attr.toLowerCase() === "srcset" || attr.toLowerCase() === "imagesrcset") {
         return `${attr}=${quote}${rewriteSrcsetAttribute(value, project, proxyBase)}${quote}`;
       }
@@ -178,44 +185,31 @@ function rewriteHtmlAttributes(
   return result;
 }
 
+const PREVIEW_LAYOUT_FIX_CSS = `/* ai-wp:preview-layout */
+body.home .entry-header,
+body.home .ast-single-entry-header,
+.home .entry-header,
+.page .entry-header .entry-title {
+  display: none !important;
+}`;
+
 export async function transformPreviewHtml(
   html: string,
   project: Project,
   proxyBase: string,
-  fetchText: (upstreamPath: string) => Promise<string>,
 ): Promise<string> {
   let result = rewriteTextForPreview(html, project, proxyBase);
   result = result.replace(/<base\b[^>]*>/gi, "");
   result = rewriteHtmlAttributes(result, project, proxyBase);
 
-  const linkTags = [...result.matchAll(/<link\b[^>]*>/gi)].map((match) => match[0]);
-
-  for (const linkTag of linkTags) {
-    if (!/\brel=["'][^"']*stylesheet/i.test(linkTag)) {
-      continue;
-    }
-
-    const hrefMatch = linkTag.match(/\bhref=["']([^"']+)["']/i);
-    if (!hrefMatch?.[1]) {
-      continue;
-    }
-
-    const upstreamPath = resolveUpstreamPath(hrefMatch[1], project);
-    if (!upstreamPath) {
-      continue;
-    }
-
-    try {
-      const cssText = await fetchText(upstreamPath);
-      const inlined = rewriteTextForPreview(cssText, project, proxyBase);
-      const styleTag = `<style data-preview-inlined="1">${inlined}</style>`;
-      result = result.replace(linkTag, styleTag);
-    } catch {
-      const rewrittenTag = linkTag.replace(
-        hrefMatch[1],
-        rewriteUrlForPreview(hrefMatch[1], project, proxyBase),
+  if (!result.includes("ai-wp:preview-layout")) {
+    if (/<\/head>/i.test(result)) {
+      result = result.replace(
+        /<\/head>/i,
+        `<style data-preview-layout="1">${PREVIEW_LAYOUT_FIX_CSS}</style></head>`,
       );
-      result = result.replace(linkTag, rewrittenTag);
+    } else {
+      result = `<style data-preview-layout="1">${PREVIEW_LAYOUT_FIX_CSS}</style>${result}`;
     }
   }
 

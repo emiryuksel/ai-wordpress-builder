@@ -322,6 +322,11 @@ function buildAstraBlogChromeCss(primary: string): string {
 .secondary-menu-bar-navigation {
   display: none !important;
 }
+body.home .entry-header,
+body.home .ast-single-entry-header,
+.home .entry-header {
+  display: none !important;
+}
 .site-footer,
 .ast-footer-overlay,
 .site-footer .footer-widget-area {

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import {
   buildWordPressSiteUrl,
-  getWordPressReachabilityHosts,
+  getWordPressUpstreamHosts,
 } from "@/lib/public-url";
 import type { Project } from "@/lib/project-store";
 
@@ -151,7 +151,7 @@ async function fetchUpstream(
   request: Request,
 ): Promise<Response> {
   const hosts = [
-    ...getWordPressReachabilityHosts(),
+    ...getWordPressUpstreamHosts(),
     ...(() => {
       try {
         return [new URL(resolveUpstreamOrigin(project)).hostname];
@@ -168,6 +168,7 @@ async function fetchUpstream(
 
   const tried = new Set<string>();
   let lastError: unknown;
+  let fallbackResponse: Response | null = null;
 
   for (const host of hosts) {
     const upstreamUrl = `http://${host}:${project.hostPort}${pathWithSearch}`;
@@ -184,27 +185,23 @@ async function fetchUpstream(
         redirect: "follow",
       });
 
-      if (response.status > 0) {
+      if (response.status >= 200 && response.status < 300) {
         return response;
+      }
+
+      if (response.status > 0 && !fallbackResponse) {
+        fallbackResponse = response;
       }
     } catch (error) {
       lastError = error;
     }
   }
 
-  throw lastError ?? new Error("WordPress önizlemesi yüklenemedi.");
-}
+  if (fallbackResponse) {
+    return fallbackResponse;
+  }
 
-export async function fetchUpstreamText(
-  project: Project,
-  upstreamPath: string,
-): Promise<string> {
-  const response = await fetchUpstream(
-    project,
-    upstreamPath.startsWith("/") ? upstreamPath : `/${upstreamPath}`,
-    new Request("http://preview-local"),
-  );
-  return response.text();
+  throw lastError ?? new Error("WordPress önizlemesi yüklenemedi.");
 }
 
 export async function proxySitePreviewRequest(
@@ -253,9 +250,7 @@ export async function proxySitePreviewRequest(
 
   const rawBody = await upstreamResponse.text();
   const rewritten = contentType.includes("text/html")
-    ? await transformPreviewHtml(rawBody, project, proxyBase, (upstreamPath) =>
-        fetchUpstreamText(project, upstreamPath),
-      )
+    ? await transformPreviewHtml(rawBody, project, proxyBase)
     : rewriteTextForPreview(rawBody, project, proxyBase);
 
   responseHeaders.delete("content-length");
