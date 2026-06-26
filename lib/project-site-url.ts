@@ -1,24 +1,40 @@
 import { execWpCli } from "@/lib/docker-manager";
-import { buildWordPressSiteUrl } from "@/lib/public-url";
+import { buildProjectPublicUrl } from "@/lib/public-url";
+import { allocateUniqueSlug, slugifyBrandName } from "@/lib/project-slug-store";
 import { updateProject, type Project } from "@/lib/project-store";
 
-/** Ortam değişkenlerinden güncel WordPress site URL'si (hostPort kaynak). */
+/** Ortam + slug üzerinden güncel public site URL'si. */
 export function resolveProjectSiteUrl(
-  project: Pick<Project, "hostPort">,
+  project: Pick<Project, "slug" | "hostPort" | "siteTitle">,
 ): string {
-  return buildWordPressSiteUrl(project.hostPort);
+  if (project.slug) {
+    return buildProjectPublicUrl(project.slug);
+  }
+
+  return buildProjectPublicUrl(slugifyBrandName(project.siteTitle) || "site");
 }
 
-/** projects.json ve WordPress siteurl/home değerlerini ortamla eşitle. */
-export async function ensureProjectSiteUrl(project: Project): Promise<Project> {
-  const canonical = resolveProjectSiteUrl(project);
-
-  if (project.siteUrl === canonical) {
+/** Eksik slug varsa üretir ve kaydeder. */
+export async function ensureProjectSlug(project: Project): Promise<Project> {
+  if (project.slug) {
     return project;
   }
 
-  const updated = await updateProject(project.id, { siteUrl: canonical });
-  const result = updated ?? { ...project, siteUrl: canonical };
+  const slug = await allocateUniqueSlug(project.siteTitle);
+  const updated = await updateProject(project.id, { slug });
+  return updated ?? { ...project, slug };
+}
+
+/** projects.json slug/siteUrl ve WordPress siteurl/home değerlerini eşitle. */
+export async function ensureProjectSiteUrl(project: Project): Promise<Project> {
+  const withSlug = await ensureProjectSlug(project);
+  const canonical = resolveProjectSiteUrl(withSlug);
+  let result = withSlug;
+
+  if (withSlug.siteUrl !== canonical) {
+    const updated = await updateProject(withSlug.id, { siteUrl: canonical });
+    result = updated ?? { ...withSlug, siteUrl: canonical };
+  }
 
   if (result.status === "ready") {
     void syncWordPressSiteUrl(result.id, canonical);

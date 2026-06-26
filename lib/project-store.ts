@@ -15,6 +15,7 @@ export interface PendingBrand {
 export interface Project {
   id: string;
   userId?: string;
+  slug?: string;
   prompt: string;
   siteType: string;
   siteTitle: string;
@@ -79,6 +80,16 @@ export async function getProject(projectId: string): Promise<Project | null> {
   return store.projects.find((project) => project.id === projectId) ?? null;
 }
 
+export async function getProjectBySlug(slug: string): Promise<Project | null> {
+  const normalized = slug.trim().toLowerCase();
+  const store = await ensureStore();
+  return (
+    store.projects.find(
+      (project) => project.slug?.toLowerCase() === normalized,
+    ) ?? null
+  );
+}
+
 export async function updateProject(
   projectId: string,
   patch: Partial<
@@ -88,6 +99,7 @@ export async function updateProject(
       | "error"
       | "hostPort"
       | "siteUrl"
+      | "slug"
       | "siteTitle"
       | "suggestedPrimaryColor"
       | "pendingBrand"

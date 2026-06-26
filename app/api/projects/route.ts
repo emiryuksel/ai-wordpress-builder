@@ -30,6 +30,7 @@ export async function GET() {
     return NextResponse.json({
       projects: projects.map((project) => ({
         projectId: project.id,
+        slug: project.slug,
         siteTitle: project.siteTitle,
         siteType: project.siteType,
         status: project.status,

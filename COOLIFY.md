@@ -28,13 +28,11 @@ Coolify → Application → **Environment Variables**:
 | `ADMIN_EMAIL` | Evet | `admin@solver.com` | İlk admin e-posta |
 | `ADMIN_PASSWORD` | Evet | güçlü şifre | İlk admin şifre |
 | `ADMIN_NAME` | Hayır | `Admin` | Admin görünen ad |
-| `APP_URL` | Evet | `https://builder.sizin-domain.com` | Ana uygulama URL'si |
-| `WORDPRESS_PUBLIC_HOST` | Evet | `203.0.113.10` veya sunucu IP | WP sitelerinin host'u |
-| `WORDPRESS_URL_SCHEME` | Hayır | `http` veya `https` | WP site URL şeması |
+| `APP_URL` | Evet | `https://wp.withsolver.com` | Ana uygulama URL'si; siteler `/{slug}` altında yayınlanır |
 | `WORDPRESS_REACHABILITY_HOST` | Hayır | `host.docker.internal` | Container içinden WP sağlık kontrolü (genelde gerekmez) |
 | `NODE_ENV` | Evet | `production` | Production modu |
 
-`WORDPRESS_PUBLIC_HOST` için IP kullanıyorsanız genelde `WORDPRESS_URL_SCHEME=http` yeterlidir. Her WordPress sitesi `http://IP:8001`, `http://IP:8002` … adresinde açılır.
+Her WordPress sitesi **`https://wp.withsolver.com/marka-adi`** formatında public URL alır. Slug, marka adından otomatik üretilir; çakışmada `-2`, `-3` … eklenir. WP container'ları internal olarak `8001–8999` portlarında çalışır; public erişim Next.js proxy üzerinden olur (firewall'da bu portları açmanız gerekmez).
 
 ## 3. Kalıcı depolama (volume) — kritik
 
@@ -184,15 +182,11 @@ Kontrol listesi:
 
 ## 9. Yerel geliştirme vs production
 
-| Ortam | `WORDPRESS_PUBLIC_HOST` | Site URL |
-|-------|-------------------------|----------|
-| Yerel (`npm run dev`) | (boş → localhost) | `http://localhost:8001` |
-| Coolify | Sunucu IP veya domain | `http://IP:8001` |
+| Ortam | Public site URL | Internal WP |
+|-------|-----------------|-------------|
+| Yerel (`npm run dev`) | `http://localhost:3100/{slug}` | `localhost:8001` … |
+| Coolify | `https://wp.withsolver.com/{slug}` | host docker portları |
 
 ## 10. Güncelleme
 
-Coolify'da yeni commit push edildiğinde **Redeploy** yeterlidir. `/app/data` volume'u bağlıysa mevcut projeler korunur.
-
----
-
-**Not:** İleride her WordPress sitesi için ayrı subdomain (`site1.builder.com`) istenirse Traefik dinamik routing ve kod değişikliği gerekir. Mevcut mimari port tabanlıdır ve VPS + açık port aralığı ile Coolify'da çalışır.
+Coolify'da yeni commit push edildiğinde **Redeploy** yeterlidir. `/app/data` volume'u bağlıysa mevcut projeler korunur; eski projelere ilk açılışta otomatik slug atanır.

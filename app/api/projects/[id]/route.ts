@@ -28,6 +28,7 @@ export async function GET(_request: Request, context: RouteContext) {
 
     return NextResponse.json({
       projectId: project.id,
+      slug: project.slug,
       siteTitle: project.siteTitle,
       siteType: project.siteType,
       siteUrl: project.siteUrl,

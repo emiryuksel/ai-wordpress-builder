@@ -17,6 +17,7 @@ import {
 } from "@/lib/corporate-content";
 import { getRuntimeRoot } from "@/lib/data-paths";
 import { getProject, updateProject } from "@/lib/project-store";
+import { resolveProjectSiteUrl } from "@/lib/project-site-url";
 import { isEcommerceProject } from "@/lib/site-type";
 import { persistWordPressCredentials } from "@/lib/wordpress-access";
 import { applyChatAction, applyAstraBlogChrome, enrichEcommerceProductImages, isWooCommerceActive, repairEcommerceSite } from "@/lib/wp-cli";
@@ -58,6 +59,7 @@ function projectToRuntimeConfig(project: {
   suggestedPlugins: string[];
   siteTitle: string;
   hostPort: number;
+  siteUrl: string;
   prompt: string;
 }): ProjectRuntimeConfig {
   return {
@@ -66,6 +68,7 @@ function projectToRuntimeConfig(project: {
     suggestedPlugins: project.suggestedPlugins,
     siteTitle: project.siteTitle,
     hostPort: project.hostPort,
+    siteUrl: project.siteUrl,
     userPrompt: project.prompt,
   };
 }
@@ -234,7 +237,10 @@ export async function completeProjectSetup(
       }
     }
 
-    await persistWordPressCredentials(projectId, project.siteUrl);
+    await persistWordPressCredentials(
+      projectId,
+      resolveProjectSiteUrl(project),
+    );
     await updateProject(projectId, { status: "ready", error: undefined });
 
     void enrichProjectInBackground(projectId, project);

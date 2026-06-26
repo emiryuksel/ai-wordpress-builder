@@ -1,5 +1,6 @@
 import type { Project } from "@/lib/project-store";
-import { buildWordPressSiteUrl } from "@/lib/public-url";
+import { buildWordPressInternalUrl } from "@/lib/public-url";
+import { resolveProjectSiteUrl } from "@/lib/project-site-url";
 
 function cleanProxy(proxyBase: string): string {
   return proxyBase.replace(/\/$/, "");
@@ -7,18 +8,27 @@ function cleanProxy(proxyBase: string): string {
 
 function getRewriteHostPatterns(project: Project): string[] {
   const port = String(project.hostPort);
-  const origin = buildWordPressSiteUrl(project.hostPort);
+  const patterns = new Set<string>([
+    `localhost:${port}`,
+    `127.0.0.1:${port}`,
+  ]);
 
   try {
-    const parsed = new URL(origin);
-    return [
-      `localhost:${port}`,
-      `127.0.0.1:${port}`,
-      `${parsed.hostname}:${port}`,
-    ];
+    const publicUrl = new URL(resolveProjectSiteUrl(project));
+    patterns.add(publicUrl.host);
+    patterns.add(publicUrl.hostname);
   } catch {
-    return [`localhost:${port}`, `127.0.0.1:${port}`];
+    // ignore
   }
+
+  try {
+    const internal = new URL(buildWordPressInternalUrl(project.hostPort));
+    patterns.add(internal.host);
+  } catch {
+    // ignore
+  }
+
+  return [...patterns];
 }
 
 function matchesWordPressHost(
@@ -28,6 +38,16 @@ function matchesWordPressHost(
 ): boolean {
   const wpPort = String(project.hostPort);
   const effectivePort = urlPort || wpPort;
+
+  try {
+    const publicHost = new URL(resolveProjectSiteUrl(project)).hostname;
+    if (hostname === publicHost) {
+      return true;
+    }
+  } catch {
+    // ignore
+  }
+
   return getRewriteHostPatterns(project).includes(`${hostname}:${effectivePort}`);
 }
 
@@ -50,6 +70,14 @@ export function rewriteUrlForPreview(
 
   if (trimmed.startsWith("/wp-") || trimmed.startsWith("/?")) {
     return `${proxy}${trimmed}`;
+  }
+
+  if (project.slug && trimmed.startsWith(`/${project.slug}/`)) {
+    return `${proxy}${trimmed.slice(`/${project.slug}`.length)}`;
+  }
+
+  if (project.slug && trimmed === `/${project.slug}`) {
+    return proxy;
   }
 
   if (trimmed.startsWith("//")) {
@@ -95,6 +123,12 @@ export function rewriteTextForPreview(
   const hostPatterns = getRewriteHostPatterns(project);
 
   let result = text;
+
+  const publicOrigin = resolveProjectSiteUrl(project).replace(/\/$/, "");
+  const proxyClean = cleanProxy(proxyBase);
+  if (publicOrigin && publicOrigin !== proxyClean) {
+    result = result.replaceAll(publicOrigin, proxyClean);
+  }
 
   for (const hostPattern of hostPatterns) {
     const escaped = hostPattern.replace(/\./g, "\\.");
@@ -244,7 +278,7 @@ function resolveUpstreamPath(
   }
 
   try {
-    const origin = buildWordPressSiteUrl(project.hostPort);
+    const origin = resolveProjectSiteUrl(project);
     const parsed = new URL(href, `${origin}/`);
     return `${parsed.pathname}${parsed.search}`;
   } catch {

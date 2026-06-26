@@ -10,7 +10,7 @@ const execFileAsync = promisify(execFile);
 import { getRuntimeRoot } from "@/lib/data-paths";
 import { listProjects } from "@/lib/project-store";
 import {
-  buildWordPressSiteUrl,
+  buildWordPressInternalUrl,
   getWordPressReachabilityHosts,
 } from "@/lib/public-url";
 
@@ -24,6 +24,7 @@ export interface ProjectRuntimeConfig {
   suggestedPlugins?: string[];
   siteTitle?: string;
   hostPort?: number;
+  siteUrl?: string;
   userPrompt?: string;
 }
 
@@ -343,7 +344,7 @@ export async function provisionProject(
   const suggestedTheme = config.suggestedTheme ?? "astra";
   const suggestedPlugins = config.suggestedPlugins ?? [];
   const siteTitle = config.siteTitle ?? "AI WordPress Site";
-  const siteUrl = buildWordPressSiteUrl(hostPort);
+  const siteUrl = config.siteUrl ?? buildWordPressInternalUrl(hostPort);
   const userPrompt = config.userPrompt ?? "";
 
   const { projectDir, composePath, wordpressContainer } =

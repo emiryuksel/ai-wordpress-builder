@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 
 import {
-  buildWordPressSiteUrl,
   getWordPressUpstreamHosts,
 } from "@/lib/public-url";
+import { resolveProjectSiteUrl } from "@/lib/project-site-url";
 import type { Project } from "@/lib/project-store";
 
 import {
@@ -36,6 +36,15 @@ const HOP_BY_HOP_HEADERS = new Set([
   "content-length",
 ]);
 
+export function buildSitePublicPath(
+  slug: string,
+  cacheBuster?: number,
+): string {
+  const suffix = cacheBuster ? `?_preview=${cacheBuster}` : "";
+  return `/${slug}${suffix}`;
+}
+
+/** @deprecated buildSitePublicPath(slug) kullanın. */
 export function buildSitePreviewPath(
   projectId: string,
   cacheBuster?: number,
@@ -45,12 +54,16 @@ export function buildSitePreviewPath(
 }
 
 export function resolveUpstreamOrigin(project: Project): string {
-  return buildWordPressSiteUrl(project.hostPort);
+  return resolveProjectSiteUrl(project);
 }
 
-function buildProxyBase(request: Request, projectId: string): string {
+function buildProxyBase(request: Request, project: Project): string {
   const origin = new URL(request.url).origin;
-  return `${origin}/site-preview/${projectId}`;
+  const slug = project.slug;
+  if (slug) {
+    return `${origin}/${slug}`;
+  }
+  return `${origin}/site-preview/${project.id}`;
 }
 
 function getUpstreamHostHeader(project: Project): string {
@@ -79,7 +92,17 @@ function buildUpstreamRequestHeaders(
   project: Project,
 ): Headers {
   const filtered = filterRequestHeaders(request.headers);
-  filtered.set("Host", getUpstreamHostHeader(project));
+  const publicUrl = resolveProjectSiteUrl(project);
+
+  try {
+    const parsed = new URL(publicUrl);
+    filtered.set("Host", parsed.host);
+    filtered.set("X-Forwarded-Host", parsed.host);
+    filtered.set("X-Forwarded-Proto", parsed.protocol.replace(/:$/, ""));
+  } catch {
+    filtered.set("Host", getUpstreamHostHeader(project));
+  }
+
   return filtered;
 }
 
@@ -221,7 +244,7 @@ export async function proxySitePreviewRequest(
   project: Project,
   pathSegments: string[],
 ): Promise<NextResponse> {
-  const proxyBase = buildProxyBase(request, project.id);
+  const proxyBase = buildProxyBase(request, project);
   const pathWithSearch = buildUpstreamPath(request, pathSegments);
 
   let upstreamResponse: Response;

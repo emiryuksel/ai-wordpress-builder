@@ -50,6 +50,7 @@ export async function GET(request: Request) {
 
   return NextResponse.json({
     projectId: resolvedProject.id,
+    slug: resolvedProject.slug,
     status: resolvedProject.status,
     hostPort: resolvedProject.hostPort,
     siteUrl: resolveProjectSiteUrl(resolvedProject),

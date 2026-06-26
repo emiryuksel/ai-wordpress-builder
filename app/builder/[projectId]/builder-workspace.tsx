@@ -4,11 +4,12 @@ import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 
 import WordPressAccessCard from "@/app/components/wordpress-access-card";
-import { buildSitePreviewPath } from "@/lib/site-preview-proxy";
+import { buildSitePreviewPath, buildSitePublicPath } from "@/lib/site-preview-proxy";
 import type { WordPressAccessInfo } from "@/lib/support";
 
 type ProjectResponse = {
   projectId: string;
+  slug?: string;
   siteTitle: string;
   siteType: string;
   siteUrl: string;
@@ -581,7 +582,9 @@ export default function BuilderWorkspace({ projectId }: BuilderWorkspaceProps) {
     );
   }
 
-  const previewUrl = buildSitePreviewPath(projectId, previewCacheBuster);
+  const previewUrl = project.slug
+    ? buildSitePublicPath(project.slug, previewCacheBuster)
+    : buildSitePreviewPath(projectId, previewCacheBuster);
   const isSiteReady = project.status === "ready";
   const showLivePreview = isSiteReady && previewReachable;
   const previewColorLabel =

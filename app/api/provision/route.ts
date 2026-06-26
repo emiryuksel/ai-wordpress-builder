@@ -4,7 +4,8 @@ import { v4 as uuidv4 } from "uuid";
 import { getAuthContext, requireSessionUser } from "@/lib/auth";
 import { findFreePort } from "@/lib/docker-manager";
 import { parseAndSanitizeProvisionIntent } from "@/lib/gemini-client";
-import { buildWordPressSiteUrl } from "@/lib/public-url";
+import { buildProjectPublicUrl } from "@/lib/public-url";
+import { allocateUniqueSlug } from "@/lib/project-slug-store";
 import { canUserCreateProject, getProjectLimit, getProjectLimitForUser } from "@/lib/plans";
 import { countProjectsByUserId, createProject } from "@/lib/project-store";
 import { startFullProvisioning } from "@/lib/provisioning";
@@ -45,11 +46,13 @@ export async function POST(request: Request) {
     const intent = await parseAndSanitizeProvisionIntent(prompt);
     const projectId = uuidv4();
     const hostPort = await findFreePort();
-    const siteUrl = buildWordPressSiteUrl(hostPort);
+    const slug = await allocateUniqueSlug(intent.siteTitle);
+    const siteUrl = buildProjectPublicUrl(slug);
 
     const project = await createProject({
       id: projectId,
       userId: user.id,
+      slug,
       prompt,
       siteType: intent.siteType,
       siteTitle: intent.siteTitle,
@@ -67,6 +70,7 @@ export async function POST(request: Request) {
       suggestedPlugins: intent.suggestedPlugins,
       siteTitle: intent.siteTitle,
       hostPort,
+      siteUrl,
       userPrompt: prompt,
     });
 
@@ -74,6 +78,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       projectId: project.id,
+      slug: project.slug,
       hostPort: project.hostPort,
       siteUrl: project.siteUrl,
       status: project.status,

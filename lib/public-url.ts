@@ -8,8 +8,42 @@ function sanitizeEnvValue(value: string | undefined): string | undefined {
   return trimmed || undefined;
 }
 
-/** WordPress önizleme / site URL'si (production'da public host kullanılır). */
-export function buildWordPressSiteUrl(hostPort: number): string {
+/** Ana uygulama kök URL'si (Coolify domain). */
+export function getAppPublicUrl(): string | null {
+  const value =
+    process.env.APP_URL?.trim() ||
+    process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+    null;
+
+  return value ? value.replace(/\/$/, "") : null;
+}
+
+/** Site slug'ları için public origin (ör. https://wp.withsolver.com). */
+export function getSitePublicOrigin(): string {
+  const configured = getAppPublicUrl();
+  if (configured) {
+    return configured;
+  }
+
+  if (process.env.NODE_ENV === "production") {
+    return "https://wp.withsolver.com";
+  }
+
+  const port = sanitizeEnvValue(process.env.PORT) ?? "3100";
+  return `http://localhost:${port}`;
+}
+
+/** Production-ready public site URL: {origin}/{slug} */
+export function buildProjectPublicUrl(slug: string): string {
+  const normalized = slug.trim().replace(/^\/+|\/+$/g, "");
+  return `${getSitePublicOrigin()}/${normalized}`;
+}
+
+/**
+ * Container içinden WP'ye erişim (health check, docker upstream).
+ * Port tabanlı internal URL — public slug URL'sinden farklıdır.
+ */
+export function buildWordPressInternalUrl(hostPort: number): string {
   const host = sanitizeEnvValue(process.env.WORDPRESS_PUBLIC_HOST) || "localhost";
   const rawScheme = sanitizeEnvValue(process.env.WORDPRESS_URL_SCHEME);
   const scheme =
@@ -19,6 +53,11 @@ export function buildWordPressSiteUrl(hostPort: number): string {
       : "https");
 
   return `${scheme}://${host}:${hostPort}`;
+}
+
+/** @deprecated buildProjectPublicUrl(slug) kullanın. Geriye dönük uyumluluk. */
+export function buildWordPressSiteUrl(hostPort: number): string {
+  return buildWordPressInternalUrl(hostPort);
 }
 
 /**
@@ -53,14 +92,4 @@ export function getWordPressUpstreamHosts(): string[] {
     ...hosts.filter((host) => !preferred.includes(host)),
   ];
   return [...new Set(ordered)];
-}
-
-/** Ana uygulama kök URL'si (Coolify domain). */
-export function getAppPublicUrl(): string | null {
-  const value =
-    process.env.APP_URL?.trim() ||
-    process.env.NEXT_PUBLIC_APP_URL?.trim() ||
-    null;
-
-  return value ? value.replace(/\/$/, "") : null;
 }
