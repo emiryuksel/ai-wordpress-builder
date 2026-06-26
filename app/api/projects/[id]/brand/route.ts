@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
 import { applyCorporateBrand } from "@/lib/corporate-content";
 import { getProjectForUser, ProjectAccessError } from "@/lib/project-access";
+import { applyBrandSlug, resolveProjectSiteUrl } from "@/lib/project-site-url";
 import { updateProject } from "@/lib/project-store";
 import { isCorporateProject } from "@/lib/site-type";
 export const runtime = "nodejs";
@@ -65,6 +66,11 @@ export async function POST(request: Request, context: RouteContext) {
   }
 
   if (project.status !== "ready") {
+    let updatedProject = project;
+    if (body.brandName?.trim()) {
+      updatedProject = await applyBrandSlug(project, body.brandName);
+    }
+
     await updateProject(projectId, {
       pendingBrand: body,
       brandOnboardingComplete: true,
@@ -72,25 +78,39 @@ export async function POST(request: Request, context: RouteContext) {
       suggestedPrimaryColor: body.primaryColor || project.suggestedPrimaryColor,
     });
 
+    const latest = await getProjectForUser(projectId, user.id);
+
     return NextResponse.json({
       ok: true,
       queued: true,
+      slug: latest.slug,
+      siteUrl: resolveProjectSiteUrl(latest),
       reply:
         "Marka tercihleriniz kaydedildi. Site kurulumu tamamlanınca otomatik uygulanacak.",
     });
   }
 
   try {
+    let updatedProject = project;
+    if (body.brandName?.trim()) {
+      updatedProject = await applyBrandSlug(project, body.brandName);
+    }
+
     const messages = await applyCorporateBrand(projectId, body);
     await updateProject(projectId, {
       pendingBrand: undefined,
       brandOnboardingComplete: true,
-      siteTitle: body.brandName?.trim() || project.siteTitle,
-      suggestedPrimaryColor: body.primaryColor || project.suggestedPrimaryColor,
+      siteTitle: body.brandName?.trim() || updatedProject.siteTitle,
+      suggestedPrimaryColor: body.primaryColor || updatedProject.suggestedPrimaryColor,
     });
+
+    const latest = await getProjectForUser(projectId, user.id);
+
     return NextResponse.json({
       ok: true,
       queued: false,
+      slug: latest.slug,
+      siteUrl: resolveProjectSiteUrl(latest),
       messages,
       reply: messages.join(" "),
     });

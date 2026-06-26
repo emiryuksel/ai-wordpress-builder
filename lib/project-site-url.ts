@@ -1,28 +1,56 @@
 import { execWpCli } from "@/lib/docker-manager";
 import { buildProjectPublicUrl } from "@/lib/public-url";
-import { allocateUniqueSlug, slugifyBrandName } from "@/lib/project-slug-store";
+import {
+  allocateUniqueSlugFromBrand,
+  buildInitialProjectSlug,
+} from "@/lib/project-slug-store";
 import { updateProject, type Project } from "@/lib/project-store";
 
 /** Ortam + slug üzerinden güncel public site URL'si. */
 export function resolveProjectSiteUrl(
-  project: Pick<Project, "slug" | "hostPort" | "siteTitle">,
+  project: Pick<Project, "slug" | "id">,
 ): string {
-  if (project.slug) {
-    return buildProjectPublicUrl(project.slug);
-  }
-
-  return buildProjectPublicUrl(slugifyBrandName(project.siteTitle) || "site");
+  const slug = project.slug ?? buildInitialProjectSlug(project.id);
+  return buildProjectPublicUrl(slug);
 }
 
-/** Eksik slug varsa üretir ve kaydeder. */
+/** Eksik slug varsa proje ID'si ile oluşturur. */
 export async function ensureProjectSlug(project: Project): Promise<Project> {
   if (project.slug) {
     return project;
   }
 
-  const slug = await allocateUniqueSlug(project.siteTitle);
-  const updated = await updateProject(project.id, { slug });
-  return updated ?? { ...project, slug };
+  const slug = buildInitialProjectSlug(project.id);
+  const siteUrl = buildProjectPublicUrl(slug);
+  const updated = await updateProject(project.id, { slug, siteUrl });
+  return updated ?? { ...project, slug, siteUrl };
+}
+
+/** Marka adına göre slug ve site URL'sini günceller. */
+export async function applyBrandSlug(
+  project: Project,
+  brandName: string,
+): Promise<Project> {
+  const trimmed = brandName.trim();
+  if (!trimmed) {
+    return project;
+  }
+
+  const newSlug = await allocateUniqueSlugFromBrand(trimmed, project.slug);
+  const siteUrl = buildProjectPublicUrl(newSlug);
+
+  if (newSlug === project.slug && project.siteUrl === siteUrl) {
+    return project;
+  }
+
+  const updated = await updateProject(project.id, { slug: newSlug, siteUrl });
+  const result = updated ?? { ...project, slug: newSlug, siteUrl };
+
+  if (result.status === "ready") {
+    await syncWordPressSiteUrl(result.id, siteUrl);
+  }
+
+  return result;
 }
 
 /** projects.json slug/siteUrl ve WordPress siteurl/home değerlerini eşitle. */

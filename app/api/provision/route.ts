@@ -5,7 +5,7 @@ import { getAuthContext, requireSessionUser } from "@/lib/auth";
 import { findFreePort } from "@/lib/docker-manager";
 import { parseAndSanitizeProvisionIntent } from "@/lib/gemini-client";
 import { buildProjectPublicUrl } from "@/lib/public-url";
-import { allocateUniqueSlug } from "@/lib/project-slug-store";
+import { buildInitialProjectSlug } from "@/lib/slug";
 import { canUserCreateProject, getProjectLimit, getProjectLimitForUser } from "@/lib/plans";
 import { countProjectsByUserId, createProject } from "@/lib/project-store";
 import { startFullProvisioning } from "@/lib/provisioning";
@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     const intent = await parseAndSanitizeProvisionIntent(prompt);
     const projectId = uuidv4();
     const hostPort = await findFreePort();
-    const slug = await allocateUniqueSlug(intent.siteTitle);
+    const slug = buildInitialProjectSlug(projectId);
     const siteUrl = buildProjectPublicUrl(slug);
 
     const project = await createProject({

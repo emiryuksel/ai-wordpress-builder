@@ -843,6 +843,7 @@ export async function applyCorporateBrand(
 
 export async function applyPendingCorporateBrand(projectId: string): Promise<boolean> {
   const { getProject, updateProject } = await import("@/lib/project-store");
+  const { applyBrandSlug } = await import("@/lib/project-site-url");
   const project = await getProject(projectId);
 
   if (!project?.pendingBrand) {
@@ -850,12 +851,18 @@ export async function applyPendingCorporateBrand(projectId: string): Promise<boo
   }
 
   const pending = project.pendingBrand;
+  let current = project;
+
+  if (pending.brandName?.trim()) {
+    current = await applyBrandSlug(project, pending.brandName);
+  }
+
   await applyCorporateBrand(projectId, pending);
   await updateProject(projectId, {
     pendingBrand: undefined,
     brandOnboardingComplete: true,
-    siteTitle: pending.brandName?.trim() || project.siteTitle,
-    suggestedPrimaryColor: pending.primaryColor || project.suggestedPrimaryColor,
+    siteTitle: pending.brandName?.trim() || current.siteTitle,
+    suggestedPrimaryColor: pending.primaryColor || current.suggestedPrimaryColor,
   });
   return true;
 }

@@ -430,6 +430,8 @@ export default function BuilderWorkspace({ projectId }: BuilderWorkspaceProps) {
         reply?: string;
         error?: string;
         queued?: boolean;
+        slug?: string;
+        siteUrl?: string;
       };
 
       if (!response.ok) {
@@ -440,6 +442,8 @@ export default function BuilderWorkspace({ projectId }: BuilderWorkspaceProps) {
         current
           ? {
               ...current,
+              slug: data.slug ?? current.slug,
+              siteUrl: data.siteUrl ?? current.siteUrl,
               siteTitle: brandName.trim() || current.siteTitle,
               suggestedPrimaryColor: colorOption.hex,
               brandOnboardingComplete: true,
@@ -462,6 +466,9 @@ export default function BuilderWorkspace({ projectId }: BuilderWorkspaceProps) {
         ),
       ]);
       setBrandPanelOpen(false);
+      if (data.slug) {
+        setPreviewCacheBuster(Date.now());
+      }
       if (!data.queued) {
         refreshPreview();
         await new Promise((resolve) => window.setTimeout(resolve, 1200));

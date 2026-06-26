@@ -34,18 +34,29 @@ export function isReservedSlug(slug: string): boolean {
   return RESERVED_SLUGS.has(slug.toLowerCase());
 }
 
+/** Yeni proje için benzersiz başlangıç slug'ı (marka kimliği öncesi). */
+export function buildInitialProjectSlug(projectId: string): string {
+  return projectId.toLowerCase();
+}
+
 /**
  * Benzersiz slug üretir: marka-adi, marka-adi-2, marka-adi-3 ...
  */
 export function allocateUniqueSlug(
   brandName: string,
   takenSlugs: ReadonlySet<string>,
+  excludeSlug?: string,
 ): string {
+  const taken = new Set(takenSlugs);
+  if (excludeSlug) {
+    taken.delete(excludeSlug.toLowerCase());
+  }
+
   const base = slugifyBrandName(brandName) || "site";
   let candidate = base;
   let suffix = 2;
 
-  while (isReservedSlug(candidate) || takenSlugs.has(candidate)) {
+  while (isReservedSlug(candidate) || taken.has(candidate)) {
     candidate = `${base}-${suffix}`;
     suffix += 1;
   }

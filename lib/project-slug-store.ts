@@ -1,7 +1,11 @@
-import { allocateUniqueSlug as allocateSlug, slugifyBrandName } from "@/lib/slug";
+import {
+  allocateUniqueSlug as allocateSlug,
+  buildInitialProjectSlug,
+  slugifyBrandName,
+} from "@/lib/slug";
 import { listProjects } from "@/lib/project-store";
 
-export { slugifyBrandName };
+export { buildInitialProjectSlug, slugifyBrandName };
 
 export async function collectTakenSlugs(): Promise<Set<string>> {
   const projects = await listProjects();
@@ -12,7 +16,10 @@ export async function collectTakenSlugs(): Promise<Set<string>> {
   );
 }
 
-export async function allocateUniqueSlug(brandName: string): Promise<string> {
+export async function allocateUniqueSlugFromBrand(
+  brandName: string,
+  excludeSlug?: string,
+): Promise<string> {
   const taken = await collectTakenSlugs();
-  return allocateSlug(brandName, taken);
+  return allocateSlug(brandName, taken, excludeSlug);
 }
