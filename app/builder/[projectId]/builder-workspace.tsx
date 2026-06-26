@@ -159,6 +159,9 @@ export default function BuilderWorkspace({ projectId }: BuilderWorkspaceProps) {
   const [sending, setSending] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
   const [previewCacheBuster, setPreviewCacheBuster] = useState(() => Date.now());
+  const [previewAccessToken, setPreviewAccessToken] = useState<string | null>(
+    null,
+  );
   const [previewOverlayShown, setPreviewOverlayShown] = useState(false);
   const [previewOverlayActive, setPreviewOverlayActive] = useState(false);
   const [previewReachable, setPreviewReachable] = useState(false);
@@ -259,6 +262,32 @@ export default function BuilderWorkspace({ projectId }: BuilderWorkspaceProps) {
       })
       .catch(() => undefined);
   }, [appendReadyBriefing, project, projectId]);
+
+  useEffect(() => {
+    if (!project || project.status !== "ready") {
+      setPreviewAccessToken(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    void fetch(`/api/projects/${projectId}/preview-token`)
+      .then((response) => response.json())
+      .then((data: { token?: string }) => {
+        if (!cancelled) {
+          setPreviewAccessToken(data.token ?? null);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setPreviewAccessToken(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [project, projectId]);
 
   useEffect(() => {
     if (!project || project.status === "ready" || project.status === "error") {
@@ -589,9 +618,16 @@ export default function BuilderWorkspace({ projectId }: BuilderWorkspaceProps) {
     );
   }
 
-  const previewUrl = buildSitePreviewPath(projectId, previewCacheBuster);
+  const previewUrl = previewAccessToken
+    ? buildSitePreviewPath(
+        projectId,
+        previewCacheBuster,
+        previewAccessToken,
+      )
+    : null;
   const isSiteReady = project.status === "ready";
-  const showLivePreview = isSiteReady && previewReachable;
+  const showLivePreview =
+    isSiteReady && previewReachable && previewUrl !== null;
   const previewColorLabel =
     BRAND_COLOR_OPTIONS.find(
       (option) =>
@@ -865,7 +901,7 @@ export default function BuilderWorkspace({ projectId }: BuilderWorkspaceProps) {
           </div>
 
           <div className="relative flex-1 bg-zinc-100 p-4 dark:bg-zinc-950">
-            {showLivePreview ? (
+            {showLivePreview && previewUrl ? (
               <iframe
                 key={previewCacheBuster}
                 title="WordPress önizleme"

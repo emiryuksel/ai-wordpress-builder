@@ -57,12 +57,24 @@ export function getWordPressProxyHost(): string {
   return "127.0.0.1";
 }
 
+/** Upstream isteklerinde WordPress container'ına iletilen Host header. */
+export function getWordPressUpstreamHostHeader(): string {
+  return "127.0.0.1";
+}
+
 /**
- * WordPress DB siteurl/home ve proxy upstream Host için internal URL.
- * Public slug URL'sinden ayrı tutulur; redirect döngüsü önlenir.
+ * WordPress container içindeki Apache'nin gördüğü canonical siteurl/home.
+ * Port yok (container içi :80); proxy HTML'de public slug URL'ye rewrite eder.
  */
-export function resolveWordPressInternalSiteUrl(hostPort: number): string {
-  return `http://${getWordPressProxyHost()}:${hostPort}`;
+export const WORDPRESS_CONTAINER_SITE_URL = "http://127.0.0.1";
+
+export function getWordPressContainerSiteUrl(): string {
+  return WORDPRESS_CONTAINER_SITE_URL;
+}
+
+/** @deprecated getWordPressContainerSiteUrl() kullanın. */
+export function resolveWordPressInternalSiteUrl(_hostPort: number): string {
+  return getWordPressContainerSiteUrl();
 }
 
 /**

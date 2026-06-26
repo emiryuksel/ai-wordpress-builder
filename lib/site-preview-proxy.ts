@@ -4,8 +4,8 @@ import { fetchWordPressFromContainer } from "@/lib/docker-manager";
 import {
   getWordPressUpstreamHosts,
   getSitePublicOrigin,
-  getWordPressProxyHost,
-  resolveWordPressInternalSiteUrl,
+  getWordPressContainerSiteUrl,
+  getWordPressUpstreamHostHeader,
 } from "@/lib/public-url";
 import { resolveProjectSiteUrl, syncWordPressSiteUrl } from "@/lib/project-site-url";
 import type { Project } from "@/lib/project-store";
@@ -47,10 +47,10 @@ export interface ProxySitePreviewOptions {
   mode?: "preview" | "public";
 }
 
-const UPSTREAM_FETCH_TIMEOUT_MS = 12_000;
+const UPSTREAM_FETCH_TIMEOUT_MS = 8_000;
 
 export function resolveUpstreamOrigin(project: Project): string {
-  return resolveWordPressInternalSiteUrl(project.hostPort);
+  return getWordPressContainerSiteUrl();
 }
 
 function buildProxyBase(request: Request, project: Project): string {
@@ -77,6 +77,7 @@ function buildUpstreamPath(
     pathSegments.length > 0 ? `/${pathSegments.join("/")}` : "/";
   const params = new URLSearchParams(incoming.search);
   params.delete("_preview");
+  params.delete("_pt");
   const search = params.toString();
   return search ? `${path}?${search}` : path;
 }
@@ -84,14 +85,10 @@ function buildUpstreamPath(
 function buildUpstreamRequestHeaders(
   request: Request,
   project: Project,
-  upstreamHost?: string,
 ): Headers {
   const filtered = filterRequestHeaders(request.headers);
-  const hostHeader =
-    upstreamHost ??
-    new URL(resolveWordPressInternalSiteUrl(project.hostPort)).host;
 
-  filtered.set("Host", hostHeader);
+  filtered.set("Host", getWordPressUpstreamHostHeader());
   filtered.set("X-Forwarded-Proto", "https");
 
   try {
@@ -194,6 +191,7 @@ async function fetchUpstream(
   const tried = new Set<string>();
   let lastError: unknown;
   let fallbackResponse: Response | null = null;
+  let successResponse: Response | null = null;
 
   for (const host of hosts) {
     const upstreamUrl = `http://${host}:${project.hostPort}${pathWithSearch}`;
@@ -201,8 +199,6 @@ async function fetchUpstream(
       continue;
     }
     tried.add(upstreamUrl);
-
-    const hostHeader = `${host}:${project.hostPort}`;
 
     try {
       const controller = new AbortController();
@@ -213,7 +209,7 @@ async function fetchUpstream(
 
       const response = await fetch(upstreamUrl, {
         method: request.method,
-        headers: buildUpstreamRequestHeaders(request, project, hostHeader),
+        headers: buildUpstreamRequestHeaders(request, project),
         body: requestBody,
         redirect: "manual",
         signal: controller.signal,
@@ -222,7 +218,8 @@ async function fetchUpstream(
       clearTimeout(timeout);
 
       if (response.status >= 200 && response.status < 300) {
-        return response;
+        successResponse = response;
+        break;
       }
 
       if (isRedirectStatus(response.status) && !fallbackResponse) {
@@ -238,15 +235,16 @@ async function fetchUpstream(
     }
   }
 
-  if (
-    (request.method === "GET" || request.method === "HEAD") &&
-    !fallbackResponse
-  ) {
+  if (successResponse) {
+    return successResponse;
+  }
+
+  if (request.method === "GET" || request.method === "HEAD") {
     const dockerResponse = await fetchWordPressFromContainer(
       project.id,
       pathWithSearch,
     );
-    if (dockerResponse) {
+    if (dockerResponse && dockerResponse.status >= 200 && dockerResponse.status < 400) {
       return dockerResponse;
     }
   }
@@ -294,24 +292,13 @@ function needsSiteurlSync(location: string, project: Project): boolean {
     return false;
   }
 
-  try {
-    const internal = resolveWordPressInternalSiteUrl(project.hostPort).replace(
-      /\/$/,
-      "",
-    );
-    const normalized = trimmed.replace(/\/$/, "");
-    if (normalized === internal || normalized.startsWith(`${internal}/`)) {
-      return false;
-    }
-  } catch {
-    // ignore
+  const internal = getWordPressContainerSiteUrl().replace(/\/$/, "");
+  const normalized = trimmed.replace(/\/$/, "");
+  if (normalized === internal || normalized.startsWith(`${internal}/`)) {
+    return false;
   }
 
-  return (
-    isPublicSiteRedirect(trimmed, project) ||
-    trimmed.includes(`127.0.0.1:${project.hostPort}`) ||
-    trimmed.includes(`${getWordPressProxyHost()}:${project.hostPort}`)
-  );
+  return isPublicSiteRedirect(trimmed, project);
 }
 
 export async function proxySitePreviewRequest(
@@ -332,11 +319,18 @@ export async function proxySitePreviewRequest(
     if (isRedirectStatus(upstreamResponse.status)) {
       const redirectLocation = upstreamResponse.headers.get("location") ?? "";
       if (needsSiteurlSync(redirectLocation, project)) {
-        await Promise.race([
-          syncWordPressSiteUrl(project),
-          new Promise((resolve) => setTimeout(resolve, 8_000)),
-        ]);
-        upstreamResponse = await fetchUpstream(project, pathWithSearch, request);
+        void syncWordPressSiteUrl(project);
+        const dockerResponse = await fetchWordPressFromContainer(
+          project.id,
+          pathWithSearch,
+        );
+        if (
+          dockerResponse &&
+          dockerResponse.status >= 200 &&
+          dockerResponse.status < 400
+        ) {
+          upstreamResponse = dockerResponse;
+        }
       }
     }
   } catch {

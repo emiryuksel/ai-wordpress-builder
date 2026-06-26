@@ -1,5 +1,9 @@
 import type { Project } from "@/lib/project-store";
-import { buildWordPressInternalUrl, getWordPressProxyHost } from "@/lib/public-url";
+import {
+  buildWordPressInternalUrl,
+  getWordPressContainerSiteUrl,
+  getWordPressProxyHost,
+} from "@/lib/public-url";
 import { resolveProjectSiteUrl } from "@/lib/project-site-url";
 
 function cleanProxy(proxyBase: string): string {
@@ -9,6 +13,7 @@ function cleanProxy(proxyBase: string): string {
 function getRewriteHostPatterns(project: Project): string[] {
   const port = String(project.hostPort);
   const patterns = new Set<string>([
+    "127.0.0.1",
     `localhost:${port}`,
     `127.0.0.1:${port}`,
     `${getWordPressProxyHost()}:${port}`,

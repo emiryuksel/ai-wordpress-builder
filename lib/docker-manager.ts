@@ -12,7 +12,7 @@ import { listProjects } from "@/lib/project-store";
 import {
   buildWordPressInternalUrl,
   getWordPressReachabilityHosts,
-  resolveWordPressInternalSiteUrl,
+  getWordPressContainerSiteUrl,
 } from "@/lib/public-url";
 
 const ROOT_DIR = process.cwd();
@@ -345,7 +345,7 @@ export async function provisionProject(
   const suggestedTheme = config.suggestedTheme ?? "astra";
   const suggestedPlugins = config.suggestedPlugins ?? [];
   const siteTitle = config.siteTitle ?? "AI WordPress Site";
-  const siteUrl = resolveWordPressInternalSiteUrl(hostPort);
+  const siteUrl = getWordPressContainerSiteUrl();
   const userPrompt = config.userPrompt ?? "";
 
   const { projectDir, composePath, wordpressContainer } =
@@ -558,7 +558,7 @@ export async function fetchWordPressFromContainer(
   const path = pathWithSearch.startsWith("/")
     ? pathWithSearch
     : `/${pathWithSearch}`;
-  const internalUrl = `http://127.0.0.1${path}`;
+  const targetUrl = `http://127.0.0.1${path}`;
 
   try {
     const { stdout } = await execFileAsync(
@@ -566,26 +566,32 @@ export async function fetchWordPressFromContainer(
       [
         "exec",
         containerName,
-        "php",
-        "-r",
-        [
-          `$u=${JSON.stringify(internalUrl)};`,
-          "$c=@file_get_contents($u);",
-          "if($c===false){fwrite(STDERR,'fetch failed');exit(1);}",
-          "$h=$http_response_header??[];",
-          "foreach($h as $l){if(preg_match('/^HTTP\\/\\S+ (\\d+)/',$l,$m)){echo $m[1].\"\\n\";break;}}",
-          "echo $c;",
-        ].join(""),
+        "curl",
+        "-sS",
+        "-L",
+        "--max-time",
+        "15",
+        "-H",
+        "Host: 127.0.0.1",
+        "-w",
+        "\n__HTTP_STATUS__%{http_code}",
+        targetUrl,
       ],
       { timeout: timeoutMs, maxBuffer: 50 * 1024 * 1024 },
     );
 
-    const newlineIndex = stdout.indexOf("\n");
+    const marker = "\n__HTTP_STATUS__";
+    const markerIndex = stdout.lastIndexOf(marker);
     const status =
-      newlineIndex > 0
-        ? Number.parseInt(stdout.slice(0, newlineIndex), 10) || 200
+      markerIndex >= 0
+        ? Number.parseInt(stdout.slice(markerIndex + marker.length), 10) || 200
         : 200;
-    const body = newlineIndex >= 0 ? stdout.slice(newlineIndex + 1) : stdout;
+    const body =
+      markerIndex >= 0 ? stdout.slice(0, markerIndex) : stdout;
+
+    if (!body.trim() && status >= 400) {
+      return null;
+    }
 
     return new Response(body, {
       status,

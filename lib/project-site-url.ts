@@ -1,7 +1,7 @@
 import { execWpCli } from "@/lib/docker-manager";
 import {
   buildProjectPublicUrl,
-  resolveWordPressInternalSiteUrl,
+  getWordPressContainerSiteUrl,
 } from "@/lib/public-url";
 import {
   allocateUniqueSlugFromBrand,
@@ -72,10 +72,7 @@ export async function ensureProjectSiteUrl(project: Project): Promise<Project> {
 export async function syncWordPressSiteUrl(
   project: Pick<Project, "id" | "hostPort">,
 ): Promise<void> {
-  const normalized = resolveWordPressInternalSiteUrl(project.hostPort).replace(
-    /\/$/,
-    "",
-  );
+  const normalized = getWordPressContainerSiteUrl().replace(/\/$/, "");
 
   try {
     const current = (await execWpCli(project.id, ["option", "get", "siteurl"]))

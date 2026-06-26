@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { getSessionUser } from "@/lib/auth";
 import { WP_PREVIEW_COOKIE } from "@/lib/preview-constants";
+import { verifyPreviewAccessToken } from "@/lib/preview-access";
 import { getProjectForUser, ProjectAccessError } from "@/lib/project-access";
 import { getProject } from "@/lib/project-store";
 import {
@@ -18,9 +19,22 @@ interface RouteContext {
 }
 
 async function resolveProject(
+  request: NextRequest,
   projectId: string,
   path: string[] | undefined,
 ) {
+  const previewToken = request.nextUrl.searchParams.get("_pt")?.trim();
+  if (previewToken) {
+    const payload = verifyPreviewAccessToken(previewToken);
+    if (payload?.projectId === projectId) {
+      const project = await getProject(projectId);
+      if (!project) {
+        throw new ProjectAccessError("Proje bulunamadı.", 404);
+      }
+      return project;
+    }
+  }
+
   const user = await getSessionUser();
   if (user) {
     return getProjectForUser(projectId, user.id);
@@ -47,7 +61,7 @@ async function handle(
   const { projectId, path } = await context.params;
 
   try {
-    const project = await resolveProject(projectId, path);
+    const project = await resolveProject(request, projectId, path);
 
     if (!project) {
       return NextResponse.json({ error: "Giriş gerekli." }, { status: 401 });

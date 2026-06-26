@@ -11,7 +11,15 @@ export function buildSitePublicPath(
 export function buildSitePreviewPath(
   projectId: string,
   cacheBuster?: number,
+  accessToken?: string,
 ): string {
-  const suffix = cacheBuster ? `?_preview=${cacheBuster}` : "";
-  return `/site-preview/${projectId}${suffix}`;
+  const params = new URLSearchParams();
+  if (cacheBuster) {
+    params.set("_preview", String(cacheBuster));
+  }
+  if (accessToken) {
+    params.set("_pt", accessToken);
+  }
+  const query = params.toString();
+  return `/site-preview/${projectId}${query ? `?${query}` : ""}`;
 }
