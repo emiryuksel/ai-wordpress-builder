@@ -529,54 +529,41 @@ html, body {
   max-width: 100% !important;
 }`;
 
-async function inlineStylesheets(
+function rewriteHtmlPreservingScripts(
   html: string,
   project: Project,
   proxyBase: string,
-  fetchCss: (upstreamPath: string) => Promise<string>,
-): Promise<string> {
-  let result = html;
-  const linkTags = [...result.matchAll(/<link\b[^>]*>/gi)].map(
-    (match) => match[0],
+): string {
+  const parts = html.split(
+    /(<script\b[^>]*>[\s\S]*?<\/script>|<style\b[^>]*>[\s\S]*?<\/style>)/gi,
   );
+  return parts
+    .map((part, index) =>
+      index % 2 === 1
+        ? part
+        : rewriteTextForPreview(part, project, proxyBase),
+    )
+    .join("");
+}
 
-  for (const linkTag of linkTags) {
+function rewriteStylesheetLinks(
+  html: string,
+  project: Project,
+  proxyBase: string,
+): string {
+  return html.replace(/<link\b[^>]*>/gi, (linkTag) => {
     if (!/\brel=["'][^"']*stylesheet/i.test(linkTag)) {
-      continue;
+      return linkTag;
     }
 
     const hrefMatch = linkTag.match(/\bhref=(["'])([^"']+)\1/i);
     if (!hrefMatch?.[2]) {
-      continue;
+      return linkTag;
     }
 
-    const upstreamPath = resolveUpstreamPath(hrefMatch[2], project, proxyBase);
-    if (!upstreamPath) {
-      continue;
-    }
-
-    try {
-      const cssText = await fetchCss(upstreamPath);
-      const inlined = rewriteCssUrls(
-        rewriteTextForPreview(cssText, project, proxyBase),
-        upstreamPath.split("?")[0] ?? upstreamPath,
-        project,
-        proxyBase,
-      );
-      result = result.replace(
-        linkTag,
-        `<style data-preview-inlined="1">${inlined}</style>`,
-      );
-    } catch {
-      const rewrittenTag = linkTag.replace(
-        hrefMatch[2],
-        rewriteUrlForPreview(hrefMatch[2], project, proxyBase),
-      );
-      result = result.replace(linkTag, rewrittenTag);
-    }
-  }
-
-  return result;
+    const rewritten = rewriteUrlForPreview(hrefMatch[2], project, proxyBase);
+    return linkTag.replace(hrefMatch[2], rewritten);
+  });
 }
 
 function injectPreviewLayoutCss(html: string): string {
@@ -612,13 +599,13 @@ export async function transformPreviewHtml(
   html: string,
   project: Project,
   proxyBase: string,
-  fetchCss: (upstreamPath: string) => Promise<string>,
+  _fetchCss?: (upstreamPath: string) => Promise<string>,
   _options?: { lightweight?: boolean },
 ): Promise<string> {
-  let result = rewriteTextForPreview(html, project, proxyBase);
+  let result = rewriteHtmlPreservingScripts(html, project, proxyBase);
   result = injectProxyBaseTag(result, proxyBase);
   result = rewriteHtmlAttributes(result, project, proxyBase);
-  result = await inlineStylesheets(result, project, proxyBase, fetchCss);
+  result = rewriteStylesheetLinks(result, project, proxyBase);
   result = injectPreviewLayoutCss(result);
   return result;
 }
