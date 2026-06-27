@@ -40,6 +40,28 @@ export function buildProjectPublicUrl(slug: string): string {
 }
 
 /**
+ * HTML/CSS rewrite ve link üretimi için proxy tabanı.
+ * request.url.origin Docker'da 0.0.0.0:3100 olabilir — her zaman APP_URL kullanılır.
+ */
+export function resolveProxyBase(
+  request: Request,
+  project: Pick<{ id: string; slug?: string | null }, "id" | "slug">,
+): string {
+  const origin = getSitePublicOrigin();
+
+  if (project.slug) {
+    return `${origin}/${project.slug}`;
+  }
+
+  const pathname = new URL(request.url).pathname;
+  if (pathname.includes("/site-preview/")) {
+    return `${origin}/site-preview/${project.id}`;
+  }
+
+  return `${origin}/site-preview/${project.id}`;
+}
+
+/**
  * Container içinden host'taki WP portlarına erişim için hostname.
  * Coolify'da uygulama container'ı host portlarına 127.0.0.1 ile değil,
  * host.docker.internal ile ulaşır.

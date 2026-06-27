@@ -34,9 +34,7 @@ async function handle(
     );
   }
 
-  return proxySitePreviewRequest(request, project, path ?? [], {
-    mode: "public",
-  });
+  return proxySitePreviewRequest(request, project, path ?? []);
 }
 
 export const GET = handle;

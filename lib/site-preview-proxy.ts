@@ -6,6 +6,7 @@ import {
   getSitePublicOrigin,
   getWordPressContainerSiteUrl,
   getWordPressUpstreamHostHeader,
+  resolveProxyBase,
 } from "@/lib/public-url";
 import { resolveProjectSiteUrl, syncWordPressSiteUrl } from "@/lib/project-site-url";
 import type { Project } from "@/lib/project-store";
@@ -43,7 +44,7 @@ const HOP_BY_HOP_HEADERS = new Set([
 ]);
 
 export interface ProxySitePreviewOptions {
-  /** Public slug sayfalarında CSS inline ve layout fix atlanır. */
+  /** @deprecated Tam HTML rewrite her zaman uygulanır. */
   mode?: "preview" | "public";
 }
 
@@ -54,18 +55,7 @@ export function resolveUpstreamOrigin(project: Project): string {
 }
 
 function buildProxyBase(request: Request, project: Project): string {
-  const origin = new URL(request.url).origin;
-  const pathname = new URL(request.url).pathname;
-
-  if (pathname.includes("/site-preview/")) {
-    return `${origin}/site-preview/${project.id}`;
-  }
-
-  const slug = project.slug;
-  if (slug) {
-    return `${origin}/${slug}`;
-  }
-  return `${origin}/site-preview/${project.id}`;
+  return resolveProxyBase(request, project);
 }
 
 function buildUpstreamPath(
@@ -309,7 +299,6 @@ export async function proxySitePreviewRequest(
 ): Promise<NextResponse> {
   const proxyBase = buildProxyBase(request, project);
   const pathWithSearch = buildUpstreamPath(request, pathSegments);
-  const lightweight = options.mode === "public";
 
   let upstreamResponse: Response;
 
@@ -372,7 +361,6 @@ export async function proxySitePreviewRequest(
         project,
         proxyBase,
         (upstreamPath) => fetchUpstreamText(project, upstreamPath),
-        { lightweight },
       )
     : rewriteTextForPreview(rawBody, project, proxyBase);
 

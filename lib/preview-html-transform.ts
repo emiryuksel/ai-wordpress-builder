@@ -1,6 +1,7 @@
 import type { Project } from "@/lib/project-store";
 import {
   buildWordPressInternalUrl,
+  getSitePublicOrigin,
   getWordPressContainerSiteUrl,
   getWordPressProxyHost,
 } from "@/lib/public-url";
@@ -17,7 +18,17 @@ function getRewriteHostPatterns(project: Project): string[] {
     `localhost:${port}`,
     `127.0.0.1:${port}`,
     `${getWordPressProxyHost()}:${port}`,
+    "0.0.0.0",
+    `0.0.0.0:${process.env.PORT ?? "3100"}`,
   ]);
+
+  try {
+    const containerOrigin = new URL(getWordPressContainerSiteUrl());
+    patterns.add(containerOrigin.host);
+    patterns.add(containerOrigin.hostname);
+  } catch {
+    // ignore
+  }
 
   try {
     const publicUrl = new URL(resolveProjectSiteUrl(project));
@@ -57,6 +68,23 @@ function matchesWordPressHost(
   return getRewriteHostPatterns(project).includes(`${hostname}:${effectivePort}`);
 }
 
+function stripSlugPrefix(pathname: string, project: Project): string {
+  if (!project.slug) {
+    return pathname;
+  }
+
+  const prefix = `/${project.slug}`;
+  if (pathname === prefix || pathname === `${prefix}/`) {
+    return "/";
+  }
+
+  if (pathname.startsWith(`${prefix}/`)) {
+    return pathname.slice(prefix.length) || "/";
+  }
+
+  return pathname;
+}
+
 export function rewriteUrlForPreview(
   url: string,
   project: Project,
@@ -72,6 +100,10 @@ export function rewriteUrlForPreview(
 
   if (trimmed.startsWith(`${proxy}/`) || trimmed.includes("/site-preview/")) {
     return trimmed;
+  }
+
+  if (trimmed.startsWith("?")) {
+    return `${proxy}${trimmed}`;
   }
 
   if (trimmed.startsWith("/wp-") || trimmed.startsWith("/?")) {
@@ -90,7 +122,9 @@ export function rewriteUrlForPreview(
     try {
       const pseudo = new URL(`https:${trimmed}`);
       if (matchesWordPressHost(pseudo.hostname, pseudo.port, project)) {
-        return `${proxy}${pseudo.pathname}${pseudo.search}`;
+        const path =
+          stripSlugPrefix(pseudo.pathname, project) + pseudo.search;
+        return `${proxy}${path}`;
       }
     } catch {
       return trimmed;
@@ -105,7 +139,9 @@ export function rewriteUrlForPreview(
         parsed.port === port ||
         (!parsed.port && port === "80")
       ) {
-        return `${proxy}${parsed.pathname}${parsed.search}`;
+        const path =
+          stripSlugPrefix(parsed.pathname, project) + parsed.search;
+        return `${proxy}${path}`;
       }
     } catch {
       return trimmed;
@@ -132,8 +168,24 @@ export function rewriteTextForPreview(
 
   const publicOrigin = resolveProjectSiteUrl(project).replace(/\/$/, "");
   const proxyClean = cleanProxy(proxyBase);
+  const publicHost = new URL(getSitePublicOrigin()).host;
+
   if (publicOrigin && publicOrigin !== proxyClean) {
     result = result.replaceAll(publicOrigin, proxyClean);
+  }
+
+  // Docker içi origin sızıntıları (0.0.0.0:3100 vb.)
+  const leakedOrigins = [
+    `http://0.0.0.0:${process.env.PORT ?? "3100"}`,
+    `https://0.0.0.0:${process.env.PORT ?? "3100"}`,
+    `http://127.0.0.1:${port}`,
+    `https://127.0.0.1:${port}`,
+    getWordPressContainerSiteUrl(),
+  ];
+  for (const leaked of leakedOrigins) {
+    if (leaked && leaked !== proxyClean) {
+      result = result.replaceAll(leaked, proxyClean);
+    }
   }
 
   for (const hostPattern of hostPatterns) {
@@ -144,7 +196,7 @@ export function rewriteTextForPreview(
     );
     result = result.replace(
       new RegExp(`\\/\\/${escaped}(?=[/"'\\s>)])`, "gi"),
-      `//${new URL(proxy).host}`,
+      `//${publicHost}`,
     );
   }
 
@@ -166,7 +218,7 @@ export function rewriteTextForPreview(
   );
 
   result = result.replace(
-    /(?<![\w./])(\/(?:wp-content|wp-includes|wp-json)(?:\/[^\s"'<>)]*)?)/g,
+    /(?<![\w./])(\/(?:wp-content|wp-includes|wp-json|wp-admin)(?:\/[^\s"'<>)]*)?)/g,
     (path) => {
       if (path.startsWith(proxy)) {
         return path;
@@ -506,19 +558,31 @@ function injectPreviewLayoutCss(html: string): string {
   return `<style data-preview-layout="1">${PREVIEW_LAYOUT_FIX_CSS}</style>${html}`;
 }
 
+function injectProxyBaseTag(html: string, proxyBase: string): string {
+  const baseHref = `${cleanProxy(proxyBase)}/`;
+  const withoutBase = html.replace(/<base\b[^>]*>/gi, "");
+
+  if (/<head[^>]*>/i.test(withoutBase)) {
+    return withoutBase.replace(
+      /<head[^>]*>/i,
+      (match) => `${match}<base href="${baseHref}">`,
+    );
+  }
+
+  return `<base href="${baseHref}">${withoutBase}`;
+}
+
 export async function transformPreviewHtml(
   html: string,
   project: Project,
   proxyBase: string,
   fetchCss: (upstreamPath: string) => Promise<string>,
-  options?: { lightweight?: boolean },
+  _options?: { lightweight?: boolean },
 ): Promise<string> {
   let result = rewriteTextForPreview(html, project, proxyBase);
-  result = result.replace(/<base\b[^>]*>/gi, "");
+  result = injectProxyBaseTag(result, proxyBase);
   result = rewriteHtmlAttributes(result, project, proxyBase);
-  if (!options?.lightweight) {
-    result = await inlineStylesheets(result, project, proxyBase, fetchCss);
-    result = injectPreviewLayoutCss(result);
-  }
+  result = await inlineStylesheets(result, project, proxyBase, fetchCss);
+  result = injectPreviewLayoutCss(result);
   return result;
 }
