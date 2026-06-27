@@ -289,7 +289,11 @@ export default function HomePage() {
           ) : null}
 
           {authContext ? (
-            <ProjectsList projects={projects} loading={projectsLoading} />
+            <ProjectsList
+              projects={projects}
+              loading={projectsLoading}
+              onProjectDeleted={() => void refreshAuth()}
+            />
           ) : null}
           </main>
         </div>

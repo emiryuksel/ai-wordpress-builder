@@ -146,3 +146,16 @@ export async function countProjectsByUserId(userId: string): Promise<number> {
   const store = await ensureStore();
   return store.projects.filter((project) => project.userId === userId).length;
 }
+
+export async function deleteProject(projectId: string): Promise<boolean> {
+  const store = await ensureStore();
+  const index = store.projects.findIndex((project) => project.id === projectId);
+
+  if (index === -1) {
+    return false;
+  }
+
+  store.projects.splice(index, 1);
+  await writeStore(store);
+  return true;
+}

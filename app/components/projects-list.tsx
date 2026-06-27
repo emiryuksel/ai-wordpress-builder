@@ -1,6 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
+
+import DeleteProjectModal from "@/app/components/delete-project-modal";
 
 type ProjectListItem = {
   projectId: string;
@@ -14,6 +17,7 @@ type ProjectListItem = {
 interface ProjectsListProps {
   projects: ProjectListItem[];
   loading?: boolean;
+  onProjectDeleted?: () => void;
 }
 
 function statusTone(status: string): string {
@@ -27,7 +31,13 @@ function statusTone(status: string): string {
   }
 }
 
-export default function ProjectsList({ projects, loading }: ProjectsListProps) {
+export default function ProjectsList({
+  projects,
+  loading,
+  onProjectDeleted,
+}: ProjectsListProps) {
+  const [deleteTarget, setDeleteTarget] = useState<ProjectListItem | null>(null);
+
   if (loading) {
     return (
       <div className="mt-8 rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-6 text-sm text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950/50">
@@ -45,38 +55,60 @@ export default function ProjectsList({ projects, loading }: ProjectsListProps) {
   }
 
   return (
-    <div className="mt-8">
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
-          Projelerim
-        </h2>
-        <span className="text-xs text-zinc-500">{projects.length} proje</span>
+    <>
+      <div className="mt-8">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+            Projelerim
+          </h2>
+          <span className="text-xs text-zinc-500">{projects.length} proje</span>
+        </div>
+
+        <ul className="space-y-2">
+          {projects.map((project) => (
+            <li key={project.projectId}>
+              <div className="flex items-center gap-2 rounded-xl border border-zinc-200 bg-zinc-50 transition hover:border-zinc-300 hover:bg-white dark:border-zinc-800 dark:bg-zinc-950/50 dark:hover:border-zinc-700 dark:hover:bg-zinc-900">
+                <Link
+                  href={`/builder/${project.projectId}`}
+                  className="flex min-w-0 flex-1 items-center justify-between gap-3 px-4 py-3"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-50">
+                      {project.siteTitle}
+                    </p>
+                    <p className="truncate text-xs text-zinc-500">
+                      {new Date(project.updatedAt).toLocaleDateString("tr-TR")}
+                    </p>
+                  </div>
+                  <span
+                    className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${statusTone(project.status)}`}
+                  >
+                    {project.statusLabel}
+                  </span>
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => setDeleteTarget(project)}
+                  className="mr-3 shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-medium text-red-600 transition hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/50"
+                  aria-label={`${project.siteTitle} projesini sil`}
+                >
+                  Sil
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
       </div>
 
-      <ul className="space-y-2">
-        {projects.map((project) => (
-          <li key={project.projectId}>
-            <Link
-              href={`/builder/${project.projectId}`}
-              className="flex items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 transition hover:border-zinc-300 hover:bg-white dark:border-zinc-800 dark:bg-zinc-950/50 dark:hover:border-zinc-700 dark:hover:bg-zinc-900"
-            >
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-50">
-                  {project.siteTitle}
-                </p>
-                <p className="truncate text-xs text-zinc-500">
-                  {new Date(project.updatedAt).toLocaleDateString("tr-TR")}
-                </p>
-              </div>
-              <span
-                className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${statusTone(project.status)}`}
-              >
-                {project.statusLabel}
-              </span>
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </div>
+      {deleteTarget ? (
+        <DeleteProjectModal
+          open
+          projectId={deleteTarget.projectId}
+          siteTitle={deleteTarget.siteTitle}
+          onClose={() => setDeleteTarget(null)}
+          onDeleted={() => onProjectDeleted?.()}
+        />
+      ) : null}
+    </>
   );
 }

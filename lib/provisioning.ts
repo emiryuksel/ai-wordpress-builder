@@ -44,6 +44,12 @@ export function isProvisioningActive(projectId: string): boolean {
   return provisioningInProgress.has(projectId) || setupInProgress.has(projectId);
 }
 
+export function cancelProjectOperations(projectId: string): void {
+  setupInProgress.delete(projectId);
+  provisioningInProgress.delete(projectId);
+  enrichmentInProgress.delete(projectId);
+}
+
 async function composeFileExists(projectId: string): Promise<boolean> {
   try {
     await fs.access(path.join(getRuntimeRoot(), projectId, "docker-compose.yml"));

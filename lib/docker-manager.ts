@@ -453,7 +453,14 @@ export async function stopProject(projectId: string): Promise<void> {
 
 export async function removeProject(projectId: string): Promise<void> {
   const { composePath, projectDir } = getProjectPaths(projectId);
-  await runDockerCompose(projectId, composePath, ["down", "-v"]);
+
+  try {
+    await fs.access(composePath);
+    await runDockerCompose(projectId, composePath, ["down", "-v"]);
+  } catch {
+    // Kurulum yarıda kaldıysa compose dosyası olmayabilir.
+  }
+
   await fs.rm(projectDir, { recursive: true, force: true });
 }
 
