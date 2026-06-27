@@ -561,6 +561,13 @@ header.site-header,
   margin-left: calc(50% - 50vw) !important;
   margin-right: calc(50% - 50vw) !important;
   box-sizing: border-box !important;
+  position: relative !important;
+}
+#ast-desktop-header,
+#ast-mobile-header,
+.ast-mobile-header-wrap {
+  width: 100% !important;
+  max-width: 100% !important;
 }
 .site-content,
 #content,
@@ -618,6 +625,35 @@ footer.site-footer,
   margin-right: calc(50% - 50vw) !important;
   box-sizing: border-box !important;
 }
+.site-below-footer-wrap,
+.site-primary-footer-wrap,
+.ast-small-footer {
+  width: 100vw !important;
+  max-width: 100vw !important;
+  margin-left: calc(50% - 50vw) !important;
+  margin-right: calc(50% - 50vw) !important;
+  box-sizing: border-box !important;
+  position: relative !important;
+  background-color: var(--ast-global-color-4, #ffffff) !important;
+}
+.site-below-footer-wrap::before,
+.site-primary-footer-wrap::before {
+  content: "" !important;
+  display: block !important;
+  position: absolute !important;
+  z-index: 0 !important;
+  left: 50% !important;
+  width: 100vw !important;
+  margin-left: -50vw !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  background-color: var(--ast-global-color-4, #ffffff) !important;
+}
+.site-below-footer-wrap > *,
+.site-primary-footer-wrap > * {
+  position: relative !important;
+  z-index: 1 !important;
+}
 .site-footer .ast-container,
 #colophon .ast-container {
   max-width: 1200px !important;
@@ -625,6 +661,16 @@ footer.site-footer,
   margin: 0 auto !important;
   padding-left: 1.25rem !important;
   padding-right: 1.25rem !important;
+}
+.site-below-footer-wrap .ast-builder-grid-row,
+.site-below-footer-wrap .ast-builder-grid-row-container,
+.site-primary-footer-wrap .ast-builder-grid-row-container {
+  max-width: 1200px !important;
+  width: 100% !important;
+  margin: 0 auto !important;
+  padding-left: 1.25rem !important;
+  padding-right: 1.25rem !important;
+  background: transparent !important;
 }
 .site-header-primary-section-left,
 .site-header-primary-section-right,

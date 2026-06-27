@@ -282,14 +282,76 @@ function contrastingTextColor(hex: string): string {
 
 function buildAstraBlogChromeCss(primary: string): string {
   return `/* ai-wp:blog-chrome */
+#masthead,
 .ast-primary-header-bar,
 .main-header-bar,
 .site-header,
-#masthead .main-header-bar,
-#ast-desktop-header .main-header-bar {
+.site-primary-header-wrap,
+#ast-desktop-header .main-header-bar,
+#masthead .main-header-bar {
+  width: 100vw !important;
+  max-width: 100vw !important;
+  margin-left: calc(50% - 50vw) !important;
+  margin-right: calc(50% - 50vw) !important;
+  box-sizing: border-box !important;
   background-color: #ffffff !important;
   border-bottom: 1px solid #e2e8f0 !important;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06) !important;
+  box-shadow: none !important;
+}
+#masthead {
+  position: relative !important;
+}
+#masthead::before {
+  content: "" !important;
+  display: block !important;
+  position: absolute !important;
+  z-index: 0 !important;
+  left: 50% !important;
+  width: 100vw !important;
+  margin-left: -50vw !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  background-color: #ffffff !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+#masthead > * {
+  position: relative !important;
+  z-index: 1 !important;
+}
+.ast-primary-header-bar .ast-container,
+.ast-primary-header-bar .ast-builder-grid-row-container,
+.site-primary-header-wrap .ast-builder-grid-row-container {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.site-below-footer-wrap,
+.site-primary-footer-wrap {
+  width: 100vw !important;
+  max-width: 100vw !important;
+  margin-left: calc(50% - 50vw) !important;
+  margin-right: calc(50% - 50vw) !important;
+  box-sizing: border-box !important;
+  position: relative !important;
+  background-color: #ffffff !important;
+}
+.site-below-footer-wrap::before {
+  content: "" !important;
+  display: block !important;
+  position: absolute !important;
+  z-index: 0 !important;
+  left: 50% !important;
+  width: 100vw !important;
+  margin-left: -50vw !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  background-color: #ffffff !important;
+}
+.site-below-footer-wrap > * {
+  position: relative !important;
+  z-index: 1 !important;
+}
+.site-below-footer-wrap .ast-builder-grid-row-container {
+  background: transparent !important;
 }
 .site-title a,
 .site-title a:hover,
@@ -356,19 +418,59 @@ body.home .ast-single-entry-header,
 function buildBrandThemeCss(color: string): string {
   const primary = normalizeHexColor(color);
   const onPrimary = contrastingTextColor(primary);
+  const fullBleed = `
+  width: 100vw !important;
+  max-width: 100vw !important;
+  margin-left: calc(50% - 50vw) !important;
+  margin-right: calc(50% - 50vw) !important;
+  box-sizing: border-box !important;
+`;
 
   return `/* ai-wp:theme */
-.ast-primary-header-bar,
-.main-header-bar,
+#masthead,
 .site-header,
+header.site-header,
+.ast-primary-header-bar,
 .site-primary-header-wrap,
 #ast-desktop-header,
 #ast-mobile-header,
-.storefront-primary-navigation,
-#masthead,
-header.site-header {
+.ast-mobile-header-wrap,
+.ast-mobile-header-wrap .ast-primary-header-bar,
+.storefront-primary-navigation {
+  ${fullBleed}
   background-color: ${primary} !important;
   border-bottom-color: ${primary} !important;
+}
+#masthead {
+  position: relative !important;
+}
+#masthead::before {
+  content: "" !important;
+  display: block !important;
+  position: absolute !important;
+  z-index: 0 !important;
+  left: 50% !important;
+  width: 100vw !important;
+  margin-left: -50vw !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  background-color: ${primary} !important;
+}
+#masthead > *,
+#ast-desktop-header > *,
+.site-primary-header-wrap > * {
+  position: relative !important;
+  z-index: 1 !important;
+}
+.ast-primary-header-bar .ast-container,
+.ast-primary-header-bar .ast-builder-grid-row,
+.ast-primary-header-bar .ast-builder-grid-row-container,
+.site-primary-header-wrap .ast-builder-grid-row-container,
+#ast-desktop-header .ast-builder-grid-row-container,
+.main-header-container,
+.ast-mobile-header-wrap .ast-primary-header-bar .ast-builder-grid-row-container {
+  background: transparent !important;
+  box-shadow: none !important;
 }
 .site-header .site-title a,
 .site-header .site-description,
