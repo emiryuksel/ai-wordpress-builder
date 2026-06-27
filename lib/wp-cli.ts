@@ -280,6 +280,37 @@ function contrastingTextColor(hex: string): string {
   return luminance > 0.55 ? "#0f172a" : "#ffffff";
 }
 
+function buildAstraHeaderAlignCss(): string {
+  return `
+.ast-primary-header-bar .ast-builder-grid-row-container,
+.site-primary-header-wrap .ast-builder-grid-row-container {
+  display: block !important;
+  max-width: 1200px !important;
+  width: 100% !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  padding: 0.75rem 1.25rem !important;
+  box-sizing: border-box !important;
+}
+.ast-primary-header-bar .ast-builder-grid-row,
+.site-primary-header-wrap .ast-builder-grid-row,
+.ast-builder-grid-row-has-sides {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  width: 100% !important;
+  gap: 1.5rem !important;
+}
+.site-header-primary-section-left {
+  flex: 0 0 auto !important;
+}
+.site-header-primary-section-right {
+  flex: 0 0 auto !important;
+  margin-left: auto !important;
+}`;
+}
+
 function buildAstraBlogChromeCss(primary: string): string {
   return `/* ai-wp:blog-chrome */
 #masthead,
@@ -412,7 +443,7 @@ body.home .ast-single-entry-header,
   object-fit: cover !important;
   min-height: 180px !important;
   background-color: #e2e8f0 !important;
-}`;
+}${buildAstraHeaderAlignCss()}`;
 }
 
 function buildBrandThemeCss(color: string): string {
@@ -514,7 +545,7 @@ input[type="button"],
 }
 #ast-scroll-top {
   background-color: ${primary} !important;
-}`;
+}${buildAstraHeaderAlignCss()}`;
 }
 
 function buildVisibleColorCss(target: string, color: string): string {
