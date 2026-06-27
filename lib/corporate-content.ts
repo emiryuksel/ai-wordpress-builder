@@ -413,7 +413,7 @@ export function buildCorporatePageHtml(
 .corp-stars{color:#f59e0b;font-size:1.5rem}.corp-proof-count{font-size:1.25rem;font-weight:700;margin-top:.75rem;color:var(--corp-primary)}
 .corp-gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1rem}
 .corp-gallery-item img{width:100%;height:160px;object-fit:cover;border-radius:8px;background:#f1f5f9}
-.corp-footer{margin-top:2.5rem;padding:2rem;background:#0f172a;color:#e2e8f0;border-radius:12px}
+.corp-footer{margin-top:2.5rem;padding:2rem;background:#0f172a;color:#e2e8f0;border-radius:0}
 .corp-social{margin-top:1rem;display:flex;gap:1rem;opacity:.7;font-size:.9rem}
 @media(max-width:768px){.corp-hero{grid-template-columns:1fr}}
 </style>

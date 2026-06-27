@@ -433,11 +433,30 @@ html, body {
   overflow-x: hidden !important;
   background: #f8fafc !important;
 }
-#page.site,
+#page.site {
+  max-width: none !important;
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+#masthead,
+.site-header,
+header.site-header,
+.ast-primary-header-bar,
+.site-primary-header-wrap {
+  width: 100vw !important;
+  max-width: 100vw !important;
+  margin-left: calc(50% - 50vw) !important;
+  margin-right: calc(50% - 50vw) !important;
+  box-sizing: border-box !important;
+  background: #fff !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+}
 .site-content,
 #content,
 .ast-separate-container .ast-article-single,
-.ast-page-builder-template .site-content > .ast-container {
+.ast-page-builder-template .site-content > .ast-container,
+.corp-page {
   max-width: 1200px !important;
   margin-left: auto !important;
   margin-right: auto !important;
@@ -445,14 +464,6 @@ html, body {
   box-sizing: border-box !important;
   padding-left: 1.25rem !important;
   padding-right: 1.25rem !important;
-}
-#masthead,
-.site-header,
-.ast-primary-header-bar,
-.site-primary-header-wrap {
-  width: 100% !important;
-  max-width: 100% !important;
-  box-sizing: border-box !important;
 }
 .site-header .ast-container,
 .ast-primary-header-bar .ast-container,
@@ -475,6 +486,35 @@ html, body {
   justify-content: space-between !important;
   gap: 1rem !important;
   flex-wrap: wrap !important;
+}
+#corp-footer.corp-footer {
+  width: 100vw !important;
+  max-width: 100vw !important;
+  margin-left: calc(50% - 50vw) !important;
+  margin-right: calc(50% - 50vw) !important;
+  margin-bottom: 0 !important;
+  border-radius: 0 !important;
+  box-sizing: border-box !important;
+  padding-left: max(1.25rem, calc(50vw - 600px + 1.25rem)) !important;
+  padding-right: max(1.25rem, calc(50vw - 600px + 1.25rem)) !important;
+}
+.site-footer,
+footer.site-footer,
+#colophon,
+.ast-footer-overlay {
+  width: 100vw !important;
+  max-width: 100vw !important;
+  margin-left: calc(50% - 50vw) !important;
+  margin-right: calc(50% - 50vw) !important;
+  box-sizing: border-box !important;
+}
+.site-footer .ast-container,
+#colophon .ast-container {
+  max-width: 1200px !important;
+  width: 100% !important;
+  margin: 0 auto !important;
+  padding-left: 1.25rem !important;
+  padding-right: 1.25rem !important;
 }
 .site-header-primary-section-left,
 .site-header-primary-section-right,
@@ -523,10 +563,6 @@ html, body {
   font-weight: 700 !important;
   color: #0f172a !important;
   text-decoration: none !important;
-}
-.corp-page {
-  margin: 0 auto !important;
-  max-width: 100% !important;
 }`;
 
 function rewriteHtmlPreservingScripts(
