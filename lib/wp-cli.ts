@@ -320,6 +320,28 @@ function buildAstraHeaderAlignCss(): string {
     grid-column: 2 !important;
     justify-self: end !important;
   }
+}
+.site-title,
+.site-title a,
+.ast-site-identity .site-title a {
+  font-size: 1.4rem !important;
+  font-weight: 700 !important;
+}
+.main-header-menu,
+.main-navigation ul,
+.ast-builder-menu-1 .main-header-menu,
+.ast-builder-menu-1 nav > ul,
+#ast-hf-menu-1,
+.ast-nav-menu {
+  gap: 0.5rem 2.25rem !important;
+}
+.main-header-menu a,
+.main-navigation a,
+.ast-builder-menu-1 .menu-item > .menu-link,
+.ast-builder-menu-1 .menu-link,
+#ast-hf-menu-1 .menu-link {
+  font-size: 1.05rem !important;
+  padding: 0.4rem 0.2rem !important;
 }`;
 }
 
