@@ -633,20 +633,32 @@ header.site-header,
 .ast-primary-header-bar .ast-builder-grid-row,
 .site-primary-header-wrap .ast-builder-grid-row,
 .ast-builder-grid-row-has-sides {
-  display: flex !important;
-  flex-direction: row !important;
+  display: grid !important;
+  grid-template-columns: 1fr auto 1fr !important;
   align-items: center !important;
-  justify-content: space-between !important;
   width: 100% !important;
-  gap: 1.5rem !important;
+  gap: 1rem !important;
 }
 .site-header-primary-section-left {
-  flex: 0 0 auto !important;
+  grid-column: 1 !important;
+  justify-self: start !important;
   margin-right: 0 !important;
 }
 .site-header-primary-section-right {
-  flex: 0 0 auto !important;
-  margin-left: auto !important;
+  grid-column: 2 !important;
+  justify-self: center !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+@media (max-width: 921px) {
+  .ast-primary-header-bar .ast-builder-grid-row,
+  .site-primary-header-wrap .ast-builder-grid-row {
+    grid-template-columns: 1fr auto !important;
+  }
+  .site-header-primary-section-right {
+    grid-column: 2 !important;
+    justify-self: end !important;
+  }
 }
 #corp-footer.corp-footer {
   width: 100vw !important;
