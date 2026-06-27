@@ -306,10 +306,20 @@ function buildCorporateImageJobs(plan: CorporateContentPlan): CorporateImageJob[
   return jobs;
 }
 
+function normalizeAttachmentPath(url: string): string {
+  try {
+    const parsed = new URL(url);
+    return `${parsed.pathname}${parsed.search}`;
+  } catch {
+    return url;
+  }
+}
+
 function applyCorporateImageUrl(html: string, job: CorporateImageJob, url: string): string {
-  let out = html.replaceAll(job.slot, url);
+  const normalized = normalizeAttachmentPath(url);
+  let out = html.replaceAll(job.slot, normalized);
   for (const legacySlot of job.legacySlots) {
-    out = out.replaceAll(legacySlot, url);
+    out = out.replaceAll(legacySlot, normalized);
   }
   return out;
 }

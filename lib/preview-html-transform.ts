@@ -85,6 +85,15 @@ function stripSlugPrefix(pathname: string, project: Project): string {
   return pathname;
 }
 
+function dedupeSlugInUrl(url: string, project: Project): string {
+  if (!project.slug) {
+    return url;
+  }
+
+  const double = `/${project.slug}/${project.slug}`;
+  return url.replaceAll(double, `/${project.slug}`);
+}
+
 export function rewriteUrlForPreview(
   url: string,
   project: Project,
@@ -99,7 +108,7 @@ export function rewriteUrlForPreview(
   }
 
   if (trimmed.startsWith(`${proxy}/`) || trimmed.includes("/site-preview/")) {
-    return trimmed;
+    return dedupeSlugInUrl(trimmed, project);
   }
 
   if (trimmed.startsWith("?")) {
@@ -107,11 +116,14 @@ export function rewriteUrlForPreview(
   }
 
   if (trimmed.startsWith("/wp-") || trimmed.startsWith("/?")) {
-    return `${proxy}${trimmed}`;
+    return dedupeSlugInUrl(`${proxy}${trimmed}`, project);
   }
 
   if (project.slug && trimmed.startsWith(`/${project.slug}/`)) {
-    return `${proxy}${trimmed.slice(`/${project.slug}`.length)}`;
+    return dedupeSlugInUrl(
+      `${proxy}${trimmed.slice(`/${project.slug}`.length)}`,
+      project,
+    );
   }
 
   if (project.slug && trimmed === `/${project.slug}`) {
@@ -124,7 +136,7 @@ export function rewriteUrlForPreview(
       if (matchesWordPressHost(pseudo.hostname, pseudo.port, project)) {
         const path =
           stripSlugPrefix(pseudo.pathname, project) + pseudo.search;
-        return `${proxy}${path}`;
+        return dedupeSlugInUrl(`${proxy}${path}`, project);
       }
     } catch {
       return trimmed;
@@ -141,7 +153,7 @@ export function rewriteUrlForPreview(
       ) {
         const path =
           stripSlugPrefix(parsed.pathname, project) + parsed.search;
-        return `${proxy}${path}`;
+        return dedupeSlugInUrl(`${proxy}${path}`, project);
       }
     } catch {
       return trimmed;
@@ -149,10 +161,15 @@ export function rewriteUrlForPreview(
   }
 
   if (trimmed.startsWith("/")) {
-    return `${proxy}${trimmed}`;
+    const [pathname, search = ""] = trimmed.split("?");
+    const path = stripSlugPrefix(pathname ?? trimmed, project);
+    const rewritten = search
+      ? `${proxy}${path}?${search}`
+      : `${proxy}${path}`;
+    return dedupeSlugInUrl(rewritten, project);
   }
 
-  return trimmed;
+  return dedupeSlugInUrl(trimmed, project);
 }
 
 export function rewriteTextForPreview(
@@ -169,9 +186,15 @@ export function rewriteTextForPreview(
   const publicOrigin = resolveProjectSiteUrl(project).replace(/\/$/, "");
   const proxyClean = cleanProxy(proxyBase);
   const publicHost = new URL(getSitePublicOrigin()).host;
+  const publicSiteOrigin = getSitePublicOrigin();
 
   if (publicOrigin && publicOrigin !== proxyClean) {
     result = result.replaceAll(publicOrigin, proxyClean);
+  }
+
+  // Çift slug güvenlik ağı
+  if (project.slug) {
+    result = dedupeSlugInUrl(result, project);
   }
 
   // Docker içi origin sızıntıları (0.0.0.0:3100 vb.)
@@ -189,6 +212,11 @@ export function rewriteTextForPreview(
   }
 
   for (const hostPattern of hostPatterns) {
+    // Public domain zaten slug içeriyorsa hostname→proxy değişimi çift slug üretir.
+    if (hostPattern === publicHost || hostPattern === publicSiteOrigin.replace(/^https?:\/\//, "")) {
+      continue;
+    }
+
     const escaped = hostPattern.replace(/\./g, "\\.");
     result = result.replace(
       new RegExp(`https?:\\/\\/${escaped}(?=[/"'\\s>)])`, "gi"),
@@ -220,14 +248,14 @@ export function rewriteTextForPreview(
   result = result.replace(
     /(?<![\w./])(\/(?:wp-content|wp-includes|wp-json|wp-admin)(?:\/[^\s"'<>)]*)?)/g,
     (path) => {
-      if (path.startsWith(proxy)) {
+      if (path.startsWith(proxy) || path.includes(`/${project.slug}/wp-`)) {
         return path;
       }
-      return `${proxy}${path}`;
+      return dedupeSlugInUrl(`${proxy}${path}`, project);
     },
   );
 
-  return result;
+  return dedupeSlugInUrl(result, project);
 }
 
 function resolveRelativePath(basePath: string, relativeUrl: string): string {
@@ -420,10 +448,18 @@ html, body {
 }
 #masthead,
 .site-header,
-.ast-primary-header-bar {
+.ast-primary-header-bar,
+.site-primary-header-wrap {
   width: 100% !important;
-  background: #fff !important;
-  border-bottom: 1px solid #e2e8f0 !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+.site-header .ast-container,
+.ast-primary-header-bar .ast-container,
+.main-header-container {
+  max-width: 1200px !important;
+  width: 100% !important;
+  margin: 0 auto !important;
 }
 .ast-primary-header-bar .ast-container,
 .main-header-container,
