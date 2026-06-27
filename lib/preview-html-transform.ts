@@ -868,6 +868,21 @@ function optimizePreviewImages(html: string): string {
   });
 }
 
+function injectBfcacheImageFix(html: string): string {
+  if (html.includes("data-preview-bfcache-fix")) {
+    return html;
+  }
+
+  const script =
+    '<script data-preview-bfcache-fix="1">window.addEventListener("pageshow",function(e){if(!e.persisted)return;document.querySelectorAll(".corp-hero-img,.corp-card-img,.corp-gallery-item img").forEach(function(img){var s=img.getAttribute("src");if(s&&(!img.complete||img.naturalWidth===0)){img.setAttribute("src",s);}});});</script>';
+
+  if (/<head[^>]*>/i.test(html)) {
+    return html.replace(/<head[^>]*>/i, (match) => `${match}${script}`);
+  }
+
+  return `${script}${html}`;
+}
+
 function injectProxyBaseTag(html: string, proxyBase: string): string {
   const baseHref = `${cleanProxy(proxyBase)}/`;
   const withoutBase = html.replace(/<base\b[^>]*>/gi, "");
@@ -896,6 +911,7 @@ export async function transformPreviewHtml(
   result = rewriteStylesheetLinks(result, project, proxyBase);
   result = optimizePreviewImages(result);
   result = injectInstantHashScrollScript(result);
+  result = injectBfcacheImageFix(result);
   result = injectPreviewLayoutCss(result);
   return result;
 }

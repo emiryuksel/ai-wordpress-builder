@@ -389,7 +389,7 @@ export function buildCorporatePageHtml(
 ): string {
   const products = plan.products
     .map(
-      (p, i) => `<article class="corp-card"><img src="${CORP_IMAGE_SLOT.product(i)}" alt="${escapeHtml(p.name)}" class="corp-card-img"/><h3>${escapeHtml(p.name)}</h3><p>${escapeHtml(p.description)}</p></article>`,
+      (p, i) => `<article class="corp-card"><div class="corp-card-media"><img src="${CORP_IMAGE_SLOT.product(i)}" alt="${escapeHtml(p.name)}" class="corp-card-img" loading="eager" decoding="sync"/></div><h3>${escapeHtml(p.name)}</h3><p>${escapeHtml(p.description)}</p></article>`,
     )
     .join("");
   const gallery = plan.gallery
@@ -408,7 +408,8 @@ export function buildCorporatePageHtml(
 .corp-section{padding:2rem 0}.corp-section h2{font-size:1.75rem;margin-bottom:1.25rem}
 .corp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1.25rem}
 .corp-card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:1rem}
-.corp-card-img{width:100%;height:140px;object-fit:cover;border-radius:8px;margin-bottom:.75rem;background:#f1f5f9}
+.corp-card-media{margin-bottom:.75rem}
+.corp-card-img{width:100%;height:140px;object-fit:cover;border-radius:8px;background:#f1f5f9;display:block}
 .corp-proof{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:2rem;text-align:center}
 .corp-stars{color:#f59e0b;font-size:1.5rem}.corp-proof-count{font-size:1.25rem;font-weight:700;margin-top:.75rem;color:var(--corp-primary)}
 .corp-gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1rem}
@@ -418,7 +419,7 @@ export function buildCorporatePageHtml(
 @media(max-width:768px){.corp-hero{grid-template-columns:1fr}}
 </style>
 <div class="corp-page">
-<section id="corp-hero" class="corp-hero"><div><h1>${escapeHtml(plan.hero.title)}</h1><p>${escapeHtml(plan.hero.subtitle)}</p><a class="corp-cta" href="#urunler">${escapeHtml(plan.hero.ctaLabel)}</a></div><img class="corp-hero-img" src="${CORP_IMAGE_SLOT.hero()}" alt="hero" loading="eager" fetchpriority="high" decoding="sync"/></section>
+<section id="corp-hero" class="corp-hero"><div class="corp-hero-copy"><h1>${escapeHtml(plan.hero.title)}</h1><p>${escapeHtml(plan.hero.subtitle)}</p><a class="corp-cta" href="#urunler">${escapeHtml(plan.hero.ctaLabel)}</a></div><div class="corp-hero-media"><img class="corp-hero-img" src="${CORP_IMAGE_SLOT.hero()}" alt="hero" loading="eager" fetchpriority="high" decoding="sync"/></div></section>
 <section id="urunler" class="corp-section"><h2>Ürünler ve Hizmetler</h2><div class="corp-grid">${products}</div></section>
 <section id="sosyal-kanit" class="corp-section"><div class="corp-proof"><div class="corp-stars">${renderStars(plan.socialProof.rating)}</div><p>"${escapeHtml(plan.socialProof.testimonial)}"</p><p class="corp-proof-count">${plan.socialProof.customerCount.toLocaleString("tr-TR")}+ müşteriye hizmet verdik</p></div></section>
 <section id="galeri" class="corp-section"><h2>Galeri</h2><div class="corp-gallery">${gallery}</div></section>
@@ -462,12 +463,61 @@ async function getHomePageId(projectId: string): Promise<string | null> {
   }
 }
 
+function stripCorporateHtmlBlock(html: string): string {
+  return html
+    .replace(/<!--\s*wp:html\s*-->\s*/gi, "")
+    .replace(/\s*<!--\s*\/wp:html\s*-->\s*/gi, "")
+    .trim();
+}
+
+function ensureCorporateHtmlBlock(html: string): string {
+  const trimmed = stripCorporateHtmlBlock(html);
+  if (trimmed.includes("<!-- wp:html -->")) {
+    return trimmed;
+  }
+  return `<!-- wp:html -->\n${trimmed}\n<!-- /wp:html -->`;
+}
+
+/** WordPress wpautop bozulmalarını düzeltir (görseller <p> içine girmesin). */
+function normalizeCorporateHomeMarkup(html: string): string {
+  let out = stripCorporateHtmlBlock(html);
+
+  out = out.replace(
+    /<section id="corp-hero" class="corp-hero">\s*<div>\s*/gi,
+    '<section id="corp-hero" class="corp-hero"><div class="corp-hero-copy">',
+  );
+
+  out = out.replace(
+    /<\/a>\s*<\/div>\s*<p>\s*<img\b([^>]*class="corp-hero-img"[^>]*)\s*\/?>\s*<\/section>/gi,
+    '</a></div><div class="corp-hero-media"><img$1></div></section>',
+  );
+
+  out = out.replace(
+    /<\/a>\s*<\/div>\s*<img\b([^>]*class="corp-hero-img"[^>]*)\s*\/?>\s*<\/section>/gi,
+    '</a></div><div class="corp-hero-media"><img$1></div></section>',
+  );
+
+  out = out.replace(
+    /<article class="corp-card">\s*<img\b([^>]*class="corp-card-img"[^>]*)\s*\/?>\s*<\/p>/gi,
+    '<article class="corp-card"><div class="corp-card-media"><img$1></div>',
+  );
+
+  out = out.replace(
+    /<article class="corp-card">\s*<img\b([^>]*class="corp-card-img"[^>]*)\s*\/?>/gi,
+    '<article class="corp-card"><div class="corp-card-media"><img$1></div>',
+  );
+
+  return out;
+}
+
 async function updateHomeContent(projectId: string, html: string): Promise<void> {
   const pageId = await getHomePageId(projectId);
   if (!pageId) throw new Error("Kurumsal ana sayfa bulunamadı.");
+  const normalized = normalizeCorporateHomeMarkup(html);
+  const wrapped = ensureCorporateHtmlBlock(normalized);
   const file = path.join(getRuntimeRoot(), projectId, "corporate-images", "home.html");
   await fs.mkdir(path.dirname(file), { recursive: true });
-  await fs.writeFile(file, html, "utf8");
+  await fs.writeFile(file, wrapped, "utf8");
   await execWpCliSh(
     projectId,
     `wp post update ${pageId} --post_content="$(cat /corporate-images/home.html)" --path=/var/www/html`,
@@ -481,6 +531,33 @@ const CORP_HERO_STRIP_CSS = `/* ai-wp:hero-strip */
 .corp-hero p{font-size:1.05rem}
 .corp-hero-img{border-radius:10px;min-height:280px;box-shadow:0 18px 40px rgba(15,23,42,.12)}
 .corp-cta{text-decoration:none;padding:.85rem 1.75rem}`;
+
+/** wpautop'u devre dışı bırakmak için Gutenberg HTML bloğu + markup onarımı. */
+export async function upgradeCorporateHtmlBlock(projectId: string): Promise<void> {
+  const pageId = await getHomePageId(projectId);
+  if (!pageId) {
+    return;
+  }
+
+  const html = await execWpCli(projectId, [
+    "post",
+    "get",
+    pageId,
+    "--field=post_content",
+  ]);
+
+  if (!html.includes("ai-wp:corporate-home")) {
+    return;
+  }
+
+  const normalized = normalizeCorporateHomeMarkup(html);
+  const wrapped = ensureCorporateHtmlBlock(normalized);
+  if (wrapped === html.trim()) {
+    return;
+  }
+
+  await updateHomeContent(projectId, normalized);
+}
 
 /** Mevcut kurumsal sayfalarda hero kutusunu tam genişlik şeride yükseltir. */
 export async function upgradeCorporateHeroLayout(projectId: string): Promise<void> {
@@ -819,6 +896,7 @@ export async function repairCorporateSite(
   if (!content.includes("ai-wp:corporate-home")) {
     await setupCorporateContent(projectId, userPrompt, siteTitle || "Kurumsal Site", primaryColor);
   }
+  await upgradeCorporateHtmlBlock(projectId);
   await upgradeCorporateHeroLayout(projectId);
   await applyAstraBlogChrome(projectId, primaryColor || "#1e40af");
   if (siteTitle.trim()) {
