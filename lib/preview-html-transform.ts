@@ -561,8 +561,6 @@ header.site-header,
   margin-left: calc(50% - 50vw) !important;
   margin-right: calc(50% - 50vw) !important;
   box-sizing: border-box !important;
-  background: #fff !important;
-  border-bottom: 1px solid #e2e8f0 !important;
 }
 .site-content,
 #content,
@@ -665,7 +663,6 @@ footer.site-footer,
   display: inline-block !important;
   padding: 0.35rem 0 !important;
   text-decoration: none !important;
-  color: #334155 !important;
   white-space: nowrap !important;
 }
 .site-title,
@@ -673,7 +670,6 @@ footer.site-footer,
 .ast-site-identity .site-title a {
   font-size: 1.15rem !important;
   font-weight: 700 !important;
-  color: #0f172a !important;
   text-decoration: none !important;
 }`;
 

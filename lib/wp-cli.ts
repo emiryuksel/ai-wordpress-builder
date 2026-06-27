@@ -354,17 +354,21 @@ body.home .ast-single-entry-header,
 }
 
 function buildBrandThemeCss(color: string): string {
-  const headerText = contrastingTextColor(color);
+  const primary = normalizeHexColor(color);
+  const onPrimary = contrastingTextColor(primary);
 
   return `/* ai-wp:theme */
 .ast-primary-header-bar,
 .main-header-bar,
 .site-header,
+.site-primary-header-wrap,
+#ast-desktop-header,
+#ast-mobile-header,
 .storefront-primary-navigation,
 #masthead,
 header.site-header {
-  background-color: ${color} !important;
-  border-bottom-color: ${color} !important;
+  background-color: ${primary} !important;
+  border-bottom-color: ${primary} !important;
 }
 .site-header .site-title a,
 .site-header .site-description,
@@ -373,8 +377,20 @@ header.site-header {
 #masthead .site-title a,
 .ast-primary-header-bar .site-title a,
 .ast-primary-header-bar .main-header-menu a,
-.main-header-menu a {
-  color: ${headerText} !important;
+.main-header-menu a,
+.ast-builder-menu-1 .menu-item > .menu-link,
+.ast-builder-menu-1 .menu-link,
+.ast-builder-menu .menu-item > a,
+.ast-header-break-point .main-header-menu a,
+#ast-hf-menu-1 .menu-link {
+  color: ${onPrimary} !important;
+}
+.ast-builder-menu-1 .menu-item:hover > .menu-link,
+.main-header-menu a:hover,
+.ast-builder-menu .menu-item > a:hover,
+.ast-builder-menu-1 .menu-item.current-menu-item > .menu-link {
+  color: ${onPrimary} !important;
+  opacity: 0.88 !important;
 }
 .button,
 button,
@@ -384,13 +400,18 @@ input[type="button"],
 .woocommerce a.button,
 .woocommerce button.button,
 .widget .search-submit,
-.onsale {
-  background-color: ${color} !important;
-  border-color: ${color} !important;
-  color: #ffffff !important;
+.onsale,
+.corp-cta {
+  background-color: ${primary} !important;
+  border-color: ${primary} !important;
+  color: ${onPrimary} !important;
 }
-.star-rating span:before {
-  color: ${color} !important;
+.star-rating span:before,
+.corp-proof-count {
+  color: ${primary} !important;
+}
+#ast-scroll-top {
+  background-color: ${primary} !important;
 }`;
 }
 
@@ -462,8 +483,26 @@ async function applyAstraBrandTheme(
   projectId: string,
   color: string,
 ): Promise<void> {
-  await updateAstraSetting(projectId, "theme-color", color);
-  await updateAstraSetting(projectId, "link-color", color);
+  const primary = normalizeHexColor(color);
+  const onPrimary = contrastingTextColor(primary);
+
+  await removeMarkedCustomCss(projectId, "ai-wp:blog-chrome");
+
+  const settings: Record<string, string> = {
+    "theme-color": primary,
+    "link-color": primary,
+    "header-color-site-title": onPrimary,
+    "header-color-h-menu-link": onPrimary,
+    "header-color-h-menu-link-hover": onPrimary,
+    "button-bg-color": primary,
+    "button-color": onPrimary,
+    "button-h-bg-color": primary,
+    "button-h-color": onPrimary,
+  };
+
+  for (const [key, value] of Object.entries(settings)) {
+    await updateAstraSetting(projectId, key, value);
+  }
 }
 
 function toStorefrontModValue(modKey: string, color: string): string {
@@ -630,6 +669,15 @@ async function applyColorChange(
   );
 
   if (isBrandThemeTarget(normalizedTarget)) {
+    try {
+      const { updateCorporatePagePrimaryColor } = await import(
+        "@/lib/corporate-content"
+      );
+      await updateCorporatePagePrimaryColor(projectId, color);
+    } catch {
+      // Kurumsal sayfa yoksa atla.
+    }
+
     return `Tema paleti ${color} olarak güncellendi — header, butonlar ve vurgular değişti (${method}).`;
   }
 
