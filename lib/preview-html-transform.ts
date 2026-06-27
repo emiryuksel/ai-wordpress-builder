@@ -850,6 +850,24 @@ function injectPreviewLayoutCss(html: string): string {
   return `<style data-preview-layout="1">${PREVIEW_LAYOUT_FIX_CSS}</style>${html}`;
 }
 
+function optimizePreviewImages(html: string): string {
+  return html.replace(/<img\b([^>]*)>/gi, (tag, attrs: string) => {
+    let next = attrs
+      .replace(/\sloading=["']lazy["']/gi, ' loading="eager"')
+      .replace(/\sdecoding=["']async["']/gi, ' decoding="sync"');
+
+    if (!/\bloading=/i.test(next)) {
+      next += ' loading="eager"';
+    }
+
+    if (/\bcorp-hero-img\b/i.test(tag) && !/\bfetchpriority=/i.test(next)) {
+      next += ' fetchpriority="high"';
+    }
+
+    return `<img${next}>`;
+  });
+}
+
 function injectProxyBaseTag(html: string, proxyBase: string): string {
   const baseHref = `${cleanProxy(proxyBase)}/`;
   const withoutBase = html.replace(/<base\b[^>]*>/gi, "");
@@ -876,6 +894,7 @@ export async function transformPreviewHtml(
   result = injectProxyBaseTag(result, proxyBase);
   result = rewriteHtmlAttributes(result, project, proxyBase);
   result = rewriteStylesheetLinks(result, project, proxyBase);
+  result = optimizePreviewImages(result);
   result = injectInstantHashScrollScript(result);
   result = injectPreviewLayoutCss(result);
   return result;

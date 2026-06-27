@@ -418,7 +418,7 @@ export function buildCorporatePageHtml(
 @media(max-width:768px){.corp-hero{grid-template-columns:1fr}}
 </style>
 <div class="corp-page">
-<section id="corp-hero" class="corp-hero"><div><h1>${escapeHtml(plan.hero.title)}</h1><p>${escapeHtml(plan.hero.subtitle)}</p><a class="corp-cta" href="#urunler">${escapeHtml(plan.hero.ctaLabel)}</a></div><img class="corp-hero-img" src="${CORP_IMAGE_SLOT.hero()}" alt="hero"/></section>
+<section id="corp-hero" class="corp-hero"><div><h1>${escapeHtml(plan.hero.title)}</h1><p>${escapeHtml(plan.hero.subtitle)}</p><a class="corp-cta" href="#urunler">${escapeHtml(plan.hero.ctaLabel)}</a></div><img class="corp-hero-img" src="${CORP_IMAGE_SLOT.hero()}" alt="hero" loading="eager" fetchpriority="high" decoding="sync"/></section>
 <section id="urunler" class="corp-section"><h2>Ürünler ve Hizmetler</h2><div class="corp-grid">${products}</div></section>
 <section id="sosyal-kanit" class="corp-section"><div class="corp-proof"><div class="corp-stars">${renderStars(plan.socialProof.rating)}</div><p>"${escapeHtml(plan.socialProof.testimonial)}"</p><p class="corp-proof-count">${plan.socialProof.customerCount.toLocaleString("tr-TR")}+ müşteriye hizmet verdik</p></div></section>
 <section id="galeri" class="corp-section"><h2>Galeri</h2><div class="corp-gallery">${gallery}</div></section>

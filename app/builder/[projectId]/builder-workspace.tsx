@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import WordPressAccessCard from "@/app/components/wordpress-access-card";
 import { buildSitePreviewPath } from "@/lib/preview-paths";
@@ -179,6 +179,7 @@ export default function BuilderWorkspace({ projectId }: BuilderWorkspaceProps) {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const previewIframeRef = useRef<HTMLIFrameElement>(null);
   const siteRepairStartedRef = useRef(false);
   const brandOnboardingShownRef = useRef(false);
   const readyBriefingSentRef = useRef(false);
@@ -366,12 +367,9 @@ export default function BuilderWorkspace({ projectId }: BuilderWorkspaceProps) {
 
     siteRepairStartedRef.current = true;
 
-    void fetch(`/api/projects/${projectId}/repair`, { method: "POST" })
-      .then(() => {
-        window.setTimeout(() => setPreviewCacheBuster(Date.now()), 8000);
-        window.setTimeout(() => setPreviewCacheBuster(Date.now()), 20000);
-      })
-      .catch(() => undefined);
+    void fetch(`/api/projects/${projectId}/repair`, { method: "POST" }).catch(
+      () => undefined,
+    );
   }, [project, projectId]);
 
   useEffect(() => {
@@ -422,8 +420,49 @@ export default function BuilderWorkspace({ projectId }: BuilderWorkspaceProps) {
     void loadProject();
   }, [projectId]);
 
+  const reloadPreviewIframe = useCallback(() => {
+    const iframe = previewIframeRef.current;
+    if (!iframe?.contentWindow) {
+      setPreviewCacheBuster(Date.now());
+      return;
+    }
+
+    try {
+      iframe.contentWindow.location.reload();
+    } catch {
+      setPreviewCacheBuster(Date.now());
+    }
+  }, []);
+
+  const previewUrl = useMemo(() => {
+    if (!previewAccessToken) {
+      return null;
+    }
+    return buildSitePreviewPath(
+      projectId,
+      previewCacheBuster,
+      previewAccessToken,
+    );
+  }, [projectId, previewCacheBuster, previewAccessToken]);
+
+  useEffect(() => {
+    const iframe = previewIframeRef.current;
+    if (!iframe || !previewUrl) {
+      return;
+    }
+
+    try {
+      const nextSrc = new URL(previewUrl, window.location.origin).href;
+      if (iframe.src !== nextSrc) {
+        iframe.src = previewUrl;
+      }
+    } catch {
+      iframe.src = previewUrl;
+    }
+  }, [previewUrl]);
+
   function refreshPreview() {
-    setPreviewCacheBuster(Date.now());
+    reloadPreviewIframe();
   }
 
   async function handleBrandSubmit(event: FormEvent<HTMLFormElement>) {
@@ -497,9 +536,8 @@ export default function BuilderWorkspace({ projectId }: BuilderWorkspaceProps) {
       setBrandPanelOpen(false);
       if (data.slug) {
         setPreviewCacheBuster(Date.now());
-      }
-      if (!data.queued) {
-        refreshPreview();
+      } else if (!data.queued) {
+        reloadPreviewIframe();
         await new Promise((resolve) => window.setTimeout(resolve, 1200));
       }
     } catch (error) {
@@ -570,7 +608,7 @@ export default function BuilderWorkspace({ projectId }: BuilderWorkspaceProps) {
           );
         }
 
-        refreshPreview();
+        reloadPreviewIframe();
       }
     } catch (error) {
       const message =
@@ -618,13 +656,6 @@ export default function BuilderWorkspace({ projectId }: BuilderWorkspaceProps) {
     );
   }
 
-  const previewUrl = previewAccessToken
-    ? buildSitePreviewPath(
-        projectId,
-        previewCacheBuster,
-        previewAccessToken,
-      )
-    : null;
   const isSiteReady = project.status === "ready";
   const showLivePreview =
     isSiteReady && previewReachable && previewUrl !== null;
@@ -903,13 +934,13 @@ export default function BuilderWorkspace({ projectId }: BuilderWorkspaceProps) {
           <div className="relative flex-1 bg-zinc-100 p-4 dark:bg-zinc-950">
             {showLivePreview && previewUrl ? (
               <iframe
-                key={previewCacheBuster}
+                ref={previewIframeRef}
                 title="WordPress önizleme"
                 src={previewUrl}
-                className={`mx-auto block h-full w-full max-w-[1280px] rounded-xl border border-zinc-300 bg-white shadow-sm transition-[filter,transform] duration-500 ease-out dark:border-zinc-700 ${
+                className={`mx-auto block h-full w-full max-w-[1280px] rounded-xl border border-zinc-300 bg-white shadow-sm transition-opacity duration-300 ease-out dark:border-zinc-700 ${
                   previewOverlayActive || brandSaving
-                    ? "scale-[0.998] blur-[3px]"
-                    : "scale-100 blur-0"
+                    ? "opacity-75"
+                    : "opacity-100"
                 }`}
               />
             ) : (
