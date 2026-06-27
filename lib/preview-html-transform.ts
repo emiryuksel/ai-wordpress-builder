@@ -94,7 +94,88 @@ function dedupeSlugInUrl(url: string, project: Project): string {
   return url.replaceAll(double, `/${project.slug}`);
 }
 
-export function rewriteUrlForPreview(
+function splitUrlHash(url: string): { base: string; hash: string } {
+  const hashIndex = url.indexOf("#");
+  if (hashIndex === -1) {
+    return { base: url, hash: "" };
+  }
+  return { base: url.slice(0, hashIndex), hash: url.slice(hashIndex) };
+}
+
+function isHomePagePath(pathname: string, project: Project): boolean {
+  const normalized = pathname.replace(/\/$/, "") || "/";
+  if (normalized === "/") {
+    return true;
+  }
+  if (project.slug) {
+    return normalized === `/${project.slug}`;
+  }
+  return false;
+}
+
+function normalizeSamePageHashLink(
+  url: string,
+  project: Project,
+  proxyBase: string,
+): string | null {
+  const trimmed = url.trim();
+  const { base, hash } = splitUrlHash(trimmed);
+  if (!hash || hash === "#") {
+    return null;
+  }
+
+  const proxy = cleanProxy(proxyBase);
+
+  if (!base) {
+    return hash;
+  }
+
+  if (base.startsWith("http://") || base.startsWith("https://")) {
+    try {
+      const parsed = new URL(base);
+      if (matchesWordPressHost(parsed.hostname, parsed.port, project)) {
+        const path = stripSlugPrefix(parsed.pathname, project);
+        if (isHomePagePath(path, project)) {
+          return hash;
+        }
+      }
+    } catch {
+      return null;
+    }
+    return null;
+  }
+
+  if (base.startsWith("//")) {
+    try {
+      const parsed = new URL(`https:${base}`);
+      if (matchesWordPressHost(parsed.hostname, parsed.port, project)) {
+        const path = stripSlugPrefix(parsed.pathname, project);
+        if (isHomePagePath(path, project)) {
+          return hash;
+        }
+      }
+    } catch {
+      return null;
+    }
+    return null;
+  }
+
+  if (base.startsWith("/")) {
+    const pathname = base.split("?")[0] ?? base;
+    const path = stripSlugPrefix(pathname, project);
+    if (isHomePagePath(path, project)) {
+      return hash;
+    }
+  }
+
+  if (base === proxy || base === `${proxy}/`) {
+    return hash;
+  }
+
+  return null;
+}
+
+function rewriteUrlBaseForPreview(
   url: string,
   project: Project,
   proxyBase: string,
@@ -170,6 +251,31 @@ export function rewriteUrlForPreview(
   }
 
   return dedupeSlugInUrl(trimmed, project);
+}
+
+export function rewriteUrlForPreview(
+  url: string,
+  project: Project,
+  proxyBase: string,
+): string {
+  const trimmed = url.trim();
+
+  if (!trimmed || trimmed.startsWith("data:")) {
+    return trimmed;
+  }
+
+  const samePageHash = normalizeSamePageHashLink(trimmed, project, proxyBase);
+  if (samePageHash) {
+    return samePageHash;
+  }
+
+  const { base, hash } = splitUrlHash(trimmed);
+  if (!base || base.startsWith("#")) {
+    return trimmed;
+  }
+
+  const rewritten = rewriteUrlBaseForPreview(base, project, proxyBase);
+  return hash ? `${rewritten}${hash}` : rewritten;
 }
 
 export function rewriteTextForPreview(
@@ -432,6 +538,12 @@ html, body {
   width: 100% !important;
   overflow-x: hidden !important;
   background: #f8fafc !important;
+  scroll-behavior: auto !important;
+}
+.corp-section,
+#corp-hero,
+#corp-footer {
+  scroll-margin-top: 5rem !important;
 }
 #page.site {
   max-width: none !important;
@@ -602,6 +714,25 @@ function rewriteStylesheetLinks(
   });
 }
 
+function disableAstraSmoothScrollToId(html: string): string {
+  return html.replace(/"is_scroll_to_id"\s*:\s*"1"/g, '"is_scroll_to_id":"0"');
+}
+
+function injectInstantHashScrollScript(html: string): string {
+  if (html.includes("data-preview-hash-scroll")) {
+    return html;
+  }
+
+  const script =
+    '<script data-preview-hash-scroll="1">(function(){document.addEventListener("click",function(e){var a=e.target.closest&&e.target.closest(\'a[href*="#"]\');if(!a)return;var href=a.getAttribute("href");if(!href||href==="#")return;var i=href.indexOf("#");if(i<0)return;var hash=href.slice(i);var id=hash.slice(1);if(!id)return;var path=href.slice(0,i);if(path){try{if(/^https?:\\/\\//i.test(path)){var u=new URL(path);if(u.origin!==location.origin)return;var p=(u.pathname.replace(/\\/$/,"")||"/");var c=(location.pathname.replace(/\\/$/,"")||"/");if(p!==c&&p+"/"!==c&&p!==c+"/")return}else if(path.charAt(0)==="/"){var bp=((path.split("#")[0]||"/").replace(/\\/$/,"")||"/");var cp=(location.pathname.replace(/\\/$/,"")||"/");if(bp!==cp&&bp+"/"!==cp&&bp!==cp+"/")return}}catch(_){return}}var el=document.getElementById(id);if(!el)return;e.preventDefault();e.stopImmediatePropagation();if(location.hash!==hash){history.replaceState(null,"",hash)}el.scrollIntoView({block:"start"});},true);})();</script>';
+
+  if (/<head[^>]*>/i.test(html)) {
+    return html.replace(/<head[^>]*>/i, (match) => `${match}${script}`);
+  }
+
+  return `${script}${html}`;
+}
+
 function injectPreviewLayoutCss(html: string): string {
   if (html.includes("ai-wp:preview-layout")) {
     return html;
@@ -639,9 +770,11 @@ export async function transformPreviewHtml(
   _options?: { lightweight?: boolean },
 ): Promise<string> {
   let result = rewriteHtmlPreservingScripts(html, project, proxyBase);
+  result = disableAstraSmoothScrollToId(result);
   result = injectProxyBaseTag(result, proxyBase);
   result = rewriteHtmlAttributes(result, project, proxyBase);
   result = rewriteStylesheetLinks(result, project, proxyBase);
+  result = injectInstantHashScrollScript(result);
   result = injectPreviewLayoutCss(result);
   return result;
 }

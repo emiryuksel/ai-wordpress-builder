@@ -79,7 +79,7 @@ if [ -n "$MENU_ID" ] && [ "$MENU_ID" != "0" ]; then
     wp menu item add-post "$MENU_ID" "$HOME_ID" --title="Ana Sayfa" --path="$WP_PATH" 2>/dev/null || true
   fi
   if ! menu_has_title "Ürünler"; then
-    wp menu item add-custom "$MENU_ID" "Ürünler" "${SITE_URL}/#urunler" --path="$WP_PATH" 2>/dev/null || true
+    wp menu item add-custom "$MENU_ID" "Ürünler" "#urunler" --path="$WP_PATH" 2>/dev/null || true
   fi
   if [ -n "$ABOUT_ID" ] && ! menu_has_title "Hakkımızda"; then
     wp menu item add-post "$MENU_ID" "$ABOUT_ID" --title="Hakkımızda" --path="$WP_PATH" 2>/dev/null || true
