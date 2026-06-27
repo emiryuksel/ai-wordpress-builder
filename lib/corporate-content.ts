@@ -401,10 +401,10 @@ export function buildCorporatePageHtml(
   return `<!-- ai-wp:corporate-home -->
 <style>
 .corp-page{--corp-primary:${primaryColor};color:#0f172a}
-.corp-hero{display:grid;grid-template-columns:1.1fr .9fr;gap:2rem;align-items:center;padding:3rem 1.5rem;background:linear-gradient(135deg,#f8fafc,#e2e8f0);border-radius:12px;margin-bottom:2.5rem}
-.corp-hero h1{font-size:2.25rem;margin:0 0 1rem}.corp-hero p{color:#475569;margin:0 0 1.5rem}
-.corp-cta{display:inline-block;background:var(--corp-primary);color:#fff;padding:.75rem 1.5rem;border-radius:8px;text-decoration:none;font-weight:600}
-.corp-hero-img{width:100%;border-radius:12px;object-fit:cover;min-height:260px}
+.corp-hero{display:grid;grid-template-columns:1.1fr .9fr;gap:2.5rem;align-items:center;width:100vw;max-width:100vw;margin-left:calc(50% - 50vw);margin-right:calc(50% - 50vw);padding:3.5rem max(1.25rem,calc(50vw - 600px + 1.25rem));box-sizing:border-box;background:linear-gradient(105deg,#f1f5f9 0%,#e8eef6 45%,#dde7f0 100%);border-radius:0;border-bottom:1px solid #cbd5e1;margin-bottom:2.5rem;box-shadow:inset 0 -1px 0 rgba(15,23,42,.05)}
+.corp-hero h1{font-size:2.5rem;font-weight:700;line-height:1.2;margin:0 0 1rem}.corp-hero p{color:#475569;margin:0 0 1.5rem;font-size:1.05rem}
+.corp-cta{display:inline-block;background:var(--corp-primary);color:#fff;padding:.85rem 1.75rem;border-radius:8px;text-decoration:none;font-weight:600}
+.corp-hero-img{width:100%;border-radius:10px;object-fit:cover;min-height:280px;box-shadow:0 18px 40px rgba(15,23,42,.12)}
 .corp-section{padding:2rem 0}.corp-section h2{font-size:1.75rem;margin-bottom:1.25rem}
 .corp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1.25rem}
 .corp-card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:1rem}
@@ -473,6 +473,37 @@ async function updateHomeContent(projectId: string, html: string): Promise<void>
     `wp post update ${pageId} --post_content="$(cat /corporate-images/home.html)" --path=/var/www/html`,
     180_000,
   );
+}
+
+const CORP_HERO_STRIP_CSS = `/* ai-wp:hero-strip */
+.corp-hero{display:grid;grid-template-columns:1.1fr .9fr;gap:2.5rem;align-items:center;width:100vw;max-width:100vw;margin-left:calc(50% - 50vw);margin-right:calc(50% - 50vw);padding:3.5rem max(1.25rem,calc(50vw - 600px + 1.25rem));box-sizing:border-box;background:linear-gradient(105deg,#f1f5f9 0%,#e8eef6 45%,#dde7f0 100%);border-radius:0;border-bottom:1px solid #cbd5e1;margin-bottom:2.5rem;box-shadow:inset 0 -1px 0 rgba(15,23,42,.05)}
+.corp-hero h1{font-size:2.5rem;font-weight:700;line-height:1.2}
+.corp-hero p{font-size:1.05rem}
+.corp-hero-img{border-radius:10px;min-height:280px;box-shadow:0 18px 40px rgba(15,23,42,.12)}
+.corp-cta{text-decoration:none;padding:.85rem 1.75rem}`;
+
+/** Mevcut kurumsal sayfalarda hero kutusunu tam genişlik şeride yükseltir. */
+export async function upgradeCorporateHeroLayout(projectId: string): Promise<void> {
+  const pageId = await getHomePageId(projectId);
+  if (!pageId) {
+    return;
+  }
+
+  const html = await execWpCli(projectId, [
+    "post",
+    "get",
+    pageId,
+    "--field=post_content",
+  ]);
+
+  if (!html.includes("ai-wp:corporate-home") || html.includes("ai-wp:hero-strip")) {
+    return;
+  }
+
+  const updated = html.replace("</style>", `${CORP_HERO_STRIP_CSS}</style>`);
+  if (updated !== html) {
+    await updateHomeContent(projectId, updated);
+  }
 }
 
 /** Kurumsal ana sayfadaki --corp-primary değişkenini günceller (CTA, vurgular). */
@@ -788,6 +819,7 @@ export async function repairCorporateSite(
   if (!content.includes("ai-wp:corporate-home")) {
     await setupCorporateContent(projectId, userPrompt, siteTitle || "Kurumsal Site", primaryColor);
   }
+  await upgradeCorporateHeroLayout(projectId);
   await applyAstraBlogChrome(projectId, primaryColor || "#1e40af");
   if (siteTitle.trim()) {
     await updateCorporateHeroBrandName(projectId, siteTitle.trim());

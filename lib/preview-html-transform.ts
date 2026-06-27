@@ -541,9 +541,39 @@ html, body {
   scroll-behavior: auto !important;
 }
 .corp-section,
-#corp-hero,
 #corp-footer {
   scroll-margin-top: 5rem !important;
+}
+#corp-hero.corp-hero {
+  scroll-margin-top: 5rem !important;
+  width: 100vw !important;
+  max-width: 100vw !important;
+  margin-left: calc(50% - 50vw) !important;
+  margin-right: calc(50% - 50vw) !important;
+  border-radius: 0 !important;
+  padding: 3.5rem max(1.25rem, calc(50vw - 600px + 1.25rem)) !important;
+  box-sizing: border-box !important;
+  background: linear-gradient(105deg, #f1f5f9 0%, #e8eef6 45%, #dde7f0 100%) !important;
+  border-bottom: 1px solid #cbd5e1 !important;
+  box-shadow: inset 0 -1px 0 rgba(15, 23, 42, 0.05) !important;
+  gap: 2.5rem !important;
+}
+#corp-hero.corp-hero h1 {
+  font-size: 2.5rem !important;
+  font-weight: 700 !important;
+  line-height: 1.2 !important;
+}
+#corp-hero.corp-hero p {
+  font-size: 1.05rem !important;
+}
+#corp-hero .corp-hero-img {
+  border-radius: 10px !important;
+  min-height: 280px !important;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12) !important;
+}
+#corp-hero .corp-cta {
+  text-decoration: none !important;
+  padding: 0.85rem 1.75rem !important;
 }
 #page.site {
   max-width: none !important;
