@@ -40,12 +40,6 @@ export default function SiteHeader({
                     ? `${authContext.projectCount} site`
                     : `${authContext.projectCount}/${authContext.projectLimit} site`}
                 </span>
-                <span
-                  className="rounded-full border border-dashed border-zinc-300 px-2.5 py-1 text-xs text-zinc-400 dark:border-zinc-700"
-                  title="Premium yakında"
-                >
-                  Premium yakında
-                </span>
               </div>
 
               <div className="hidden h-6 w-px bg-zinc-200 dark:bg-zinc-700 sm:block" />

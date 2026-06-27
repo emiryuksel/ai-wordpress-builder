@@ -104,12 +104,25 @@ function createWordPressAccessMessage(access: WordPressAccessInfo): ChatMessage 
   };
 }
 
-function brandPanelSessionKey(projectId: string): string {
-  return `brand-panel-seen-${projectId}`;
+function withWordPressAccessCard(
+  messages: ChatMessage[],
+  project: ProjectResponse,
+  briefingSentRef: { current: boolean },
+): ChatMessage[] {
+  if (
+    project.status !== "ready" ||
+    !project.wordpressAccess ||
+    briefingSentRef.current
+  ) {
+    return messages;
+  }
+
+  briefingSentRef.current = true;
+  return [...messages, createWordPressAccessMessage(project.wordpressAccess)];
 }
 
-function readyBriefingSessionKey(projectId: string): string {
-  return `ready-briefing-${projectId}`;
+function brandPanelSessionKey(projectId: string): string {
+  return `brand-panel-seen-${projectId}`;
 }
 
 function shouldOpenBrandPanel(project: ProjectResponse): boolean {
@@ -198,49 +211,50 @@ export default function BuilderWorkspace({ projectId }: BuilderWorkspaceProps) {
     if (openBrandPanel) {
       sessionStorage.setItem(brandPanelSessionKey(project.projectId), "1");
       setBrandPanelOpen(true);
-      setMessages([
-        createMessage(
-          "assistant",
-          project.status === "ready"
-            ? "Siteniz hazır. Aşağıdan marka adınızı, renk ve font tercihlerinizi seçin — site anında güncellenir. Sonrasında buradan serbestçe düzenleme isteyebilirsiniz."
-            : "Siteniz arka planda kuruluyor. Bu sırada marka kimliğinizi tanımlayın — kurulum bitince tercihleriniz otomatik uygulanır.",
+      setMessages(
+        withWordPressAccessCard(
+          [
+            createMessage(
+              "assistant",
+              project.status === "ready"
+                ? "Siteniz hazır. Aşağıdan marka adınızı, renk ve font tercihlerinizi seçin — site anında güncellenir. Sonrasında buradan serbestçe düzenleme isteyebilirsiniz."
+                : "Siteniz arka planda kuruluyor. Bu sırada marka kimliğinizi tanımlayın — kurulum bitince tercihleriniz otomatik uygulanır.",
+            ),
+          ],
+          project,
+          readyBriefingSentRef,
         ),
-      ]);
+      );
       return;
     }
 
-    setMessages([
-      createMessage(
-        "assistant",
-        project.status === "ready"
-          ? "Siteniz hazır. Tema, renk, font veya içerik değişikliklerini buradan yazabilirsiniz."
-          : "Siteniz arka planda kuruluyor. Kurulum tamamlanınca buradan düzenleme isteyebilirsiniz.",
+    setMessages(
+      withWordPressAccessCard(
+        [
+          createMessage(
+            "assistant",
+            project.status === "ready"
+              ? "Siteniz hazır. Tema, renk, font veya içerik değişikliklerini buradan yazabilirsiniz."
+              : "Siteniz arka planda kuruluyor. Kurulum tamamlanınca buradan düzenleme isteyebilirsiniz.",
+          ),
+        ],
+        project,
+        readyBriefingSentRef,
       ),
-    ]);
+    );
   }, [project]);
 
-  const appendReadyBriefing = useCallback(
-    (data: ProjectResponse) => {
-      if (!data.wordpressAccess || readyBriefingSentRef.current) {
-        return;
-      }
+  const appendReadyBriefing = useCallback((data: ProjectResponse) => {
+    if (!data.wordpressAccess || readyBriefingSentRef.current) {
+      return;
+    }
 
-      if (sessionStorage.getItem(readyBriefingSessionKey(projectId))) {
-        readyBriefingSentRef.current = true;
-        return;
-      }
-
-      readyBriefingSentRef.current = true;
-      sessionStorage.setItem(readyBriefingSessionKey(projectId), "1");
-      const access = data.wordpressAccess;
-      if (!access) {
-        return;
-      }
-
-      setMessages((current) => [...current, createWordPressAccessMessage(access)]);
-    },
-    [projectId],
-  );
+    readyBriefingSentRef.current = true;
+    setMessages((current) => [
+      ...current,
+      createWordPressAccessMessage(data.wordpressAccess!),
+    ]);
+  }, []);
 
   useEffect(() => {
     if (!project || project.status !== "ready") {

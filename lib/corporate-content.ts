@@ -9,6 +9,7 @@ import { generateCorporateImage } from "@/lib/gemini-image";
 import { getGeminiClient } from "@/lib/gemini-client";
 import { applyChatAction } from "@/lib/wp-cli";
 import { isCorporateProject } from "@/lib/site-type";
+import { installCorporateWpGuard } from "@/lib/corporate-wp-guard";
 
 export { isCorporateProject };
 
@@ -389,12 +390,12 @@ export function buildCorporatePageHtml(
 ): string {
   const products = plan.products
     .map(
-      (p, i) => `<article class="corp-card"><div class="corp-card-media"><img src="${CORP_IMAGE_SLOT.product(i)}" alt="${escapeHtml(p.name)}" class="corp-card-img" loading="eager" decoding="sync"/></div><h3>${escapeHtml(p.name)}</h3><p>${escapeHtml(p.description)}</p></article>`,
+      (p, i) => `<article class="corp-card"><div class="corp-card-media"><img src="${CORP_IMAGE_SLOT.product(i)}" alt="${escapeHtml(p.name)}" class="corp-card-img"></div><h3>${escapeHtml(p.name)}</h3><p>${escapeHtml(p.description)}</p></article>`,
     )
     .join("");
   const gallery = plan.gallery
     .map(
-      (g, i) => `<figure class="corp-gallery-item"><img src="${CORP_IMAGE_SLOT.gallery(i)}" alt="${escapeHtml(g.caption)}"/><figcaption>${escapeHtml(g.caption)}</figcaption></figure>`,
+      (g, i) => `<figure class="corp-gallery-item"><img src="${CORP_IMAGE_SLOT.gallery(i)}" alt="${escapeHtml(g.caption)}"><figcaption>${escapeHtml(g.caption)}</figcaption></figure>`,
     )
     .join("");
 
@@ -419,7 +420,7 @@ export function buildCorporatePageHtml(
 @media(max-width:768px){.corp-hero{grid-template-columns:1fr}}
 </style>
 <div class="corp-page">
-<section id="corp-hero" class="corp-hero"><div class="corp-hero-copy"><h1>${escapeHtml(plan.hero.title)}</h1><p>${escapeHtml(plan.hero.subtitle)}</p><a class="corp-cta" href="#urunler">${escapeHtml(plan.hero.ctaLabel)}</a></div><div class="corp-hero-media"><img class="corp-hero-img" src="${CORP_IMAGE_SLOT.hero()}" alt="hero" loading="eager" fetchpriority="high" decoding="sync"/></div></section>
+<section id="corp-hero" class="corp-hero"><div class="corp-hero-copy"><h1>${escapeHtml(plan.hero.title)}</h1><p>${escapeHtml(plan.hero.subtitle)}</p><a class="corp-cta" href="#urunler">${escapeHtml(plan.hero.ctaLabel)}</a></div><div class="corp-hero-media"><img class="corp-hero-img" src="${CORP_IMAGE_SLOT.hero()}" alt="hero"></div></section>
 <section id="urunler" class="corp-section"><h2>Ürünler ve Hizmetler</h2><div class="corp-grid">${products}</div></section>
 <section id="sosyal-kanit" class="corp-section"><div class="corp-proof"><div class="corp-stars">${renderStars(plan.socialProof.rating)}</div><p>"${escapeHtml(plan.socialProof.testimonial)}"</p><p class="corp-proof-count">${plan.socialProof.customerCount.toLocaleString("tr-TR")}+ müşteriye hizmet verdik</p></div></section>
 <section id="galeri" class="corp-section"><h2>Galeri</h2><div class="corp-gallery">${gallery}</div></section>
@@ -478,6 +479,33 @@ function ensureCorporateHtmlBlock(html: string): string {
   return `<!-- wp:html -->\n${trimmed}\n<!-- /wp:html -->`;
 }
 
+/** WordPress'in img etiketlerine eklediği bozuk "/ loading" kalıplarını düzeltir. */
+function repairCorporateImageTags(html: string): string {
+  let out = html;
+
+  out = out.replace(
+    /(<img\b[^>]*?)"\s*\/(\s+(?:loading|fetchpriority|decoding)=)/gi,
+    '$1"$2',
+  );
+
+  out = out.replace(/<img\b([^>]*?)\s*\/>/gi, "<img$1>");
+
+  out = out.replace(/\s+loading=["'][^"']*["']/gi, "");
+  out = out.replace(/\s+fetchpriority=["'][^"']*["']/gi, "");
+  out = out.replace(/\s+decoding=["'][^"']*["']/gi, "");
+
+  return out;
+}
+
+function corporateHomeNeedsMarkupRepair(html: string): boolean {
+  return (
+    !html.includes("<!-- wp:html -->") ||
+    /"\s*\/(\s+(?:loading|fetchpriority|decoding)=)/i.test(html) ||
+    /<p>\s*<(?:img|section|article|figure)\b/i.test(html) ||
+    /<img\b[^>]*\/>/i.test(html)
+  );
+}
+
 /** WordPress wpautop bozulmalarını düzeltir (görseller <p> içine girmesin). */
 function normalizeCorporateHomeMarkup(html: string): string {
   let out = stripCorporateHtmlBlock(html);
@@ -507,7 +535,14 @@ function normalizeCorporateHomeMarkup(html: string): string {
     '<article class="corp-card"><div class="corp-card-media"><img$1></div>',
   );
 
-  return out;
+  out = out.replace(
+    /<figure class="corp-gallery-item">\s*<p>\s*<img\b([^>]*)\s*\/?>\s*<\/p>/gi,
+    '<figure class="corp-gallery-item"><img$1>',
+  );
+
+  out = out.replace(/<p>\s*(<img\b[^>]*class="corp-(?:hero-img|card-img)"[^>]*>)\s*<\/p>/gi, "$1");
+
+  return repairCorporateImageTags(out);
 }
 
 async function updateHomeContent(projectId: string, html: string): Promise<void> {
@@ -552,7 +587,7 @@ export async function upgradeCorporateHtmlBlock(projectId: string): Promise<void
 
   const normalized = normalizeCorporateHomeMarkup(html);
   const wrapped = ensureCorporateHtmlBlock(normalized);
-  if (wrapped === html.trim()) {
+  if (wrapped.trim() === html.trim() && !corporateHomeNeedsMarkupRepair(html)) {
     return;
   }
 
@@ -741,6 +776,7 @@ export async function setupCorporateContent(
     projectId,
     buildCorporatePageHtml(plan, primaryColor),
   );
+  await installCorporateWpGuard(projectId);
 }
 
 async function generateAndImportCorporateImage(
@@ -896,6 +932,7 @@ export async function repairCorporateSite(
   if (!content.includes("ai-wp:corporate-home")) {
     await setupCorporateContent(projectId, userPrompt, siteTitle || "Kurumsal Site", primaryColor);
   }
+  await installCorporateWpGuard(projectId);
   await upgradeCorporateHtmlBlock(projectId);
   await upgradeCorporateHeroLayout(projectId);
   await applyAstraBlogChrome(projectId, primaryColor || "#1e40af");

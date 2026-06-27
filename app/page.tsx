@@ -21,7 +21,6 @@ type MeResponse = {
   projectLimit?: number;
   unlimited?: boolean;
   canCreateProject?: boolean;
-  premiumAvailable?: boolean;
 };
 
 type ProjectsResponse = {

@@ -32,7 +32,3 @@ export function canUserCreateProject(
   }
   return projectCount < getProjectLimit(user.plan);
 }
-
-export function isPremiumAvailable(): boolean {
-  return false;
-}

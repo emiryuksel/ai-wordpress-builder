@@ -223,8 +223,7 @@ export default function AuthModal({
         </form>
 
         <p className="mt-4 text-xs text-zinc-500">
-          Ücretsiz planda en fazla 2 site oluşturabilirsiniz. Premium paket
-          yakında — 5 site limiti.
+          Ücretsiz planda en fazla 2 site oluşturabilirsiniz.
         </p>
       </div>
     </div>
