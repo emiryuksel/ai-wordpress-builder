@@ -103,15 +103,15 @@ if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROT
     $_SERVER['HTTPS'] = 'on';
 }
 /* ai-wp:debug — geçici redirect teşhisi */
-add_filter('wp_redirect', function ($location, $status) {
+add_filter('redirect_canonical', function ($redirect_url, $requested_url) {
     if (isset($_GET['ai_wp_dbg'])) {
-        header('X-AI-Redirect-Target: ' . $location, false);
-        header('X-AI-Redirect-Status: ' . $status, false);
-        header('X-AI-Req-Uri: ' . (isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : ''), false);
-        header('X-AI-Http-Host: ' . (isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : ''), false);
-        header('X-AI-Home: ' . get_option('home'), false);
+        @header('X-AI-Canonical-To: ' . $redirect_url, false);
+        @header('X-AI-Canonical-Req: ' . $requested_url, false);
+        @header('X-AI-Http-Host: ' . (isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : ''), false);
+        @header('X-AI-Is-Ssl: ' . (is_ssl() ? '1' : '0'), false);
+        @header('X-AI-Home: ' . get_option('home'), false);
     }
-    return $location;
+    return $redirect_url;
 }, 10, 2);
 `;
 
