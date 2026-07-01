@@ -110,6 +110,23 @@ if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROT
 $_SERVER['HTTP_HOST'] = '127.0.0.1';
 $_SERVER['SERVER_NAME'] = '127.0.0.1';
 $_SERVER['SERVER_PORT'] = '80';
+
+/*
+ * Reverse proxy arkasında redirect_canonical, yalnızca host/scheme farkıyla
+ * aynı path'e 301 atarsa (örn. https://.../hakkimizda/ -> https://.../hakkimizda/)
+ * bu proxy önünde sonsuz döngü yaratır. Path'ler aynıysa redirect'i iptal et.
+ */
+add_filter('redirect_canonical', function ($redirect_url, $requested_url) {
+    if (!$redirect_url) {
+        return $redirect_url;
+    }
+    $to = parse_url($redirect_url, PHP_URL_PATH);
+    $from = parse_url($requested_url, PHP_URL_PATH);
+    if ($to !== null && $from !== null && rtrim($to, '/') === rtrim($from, '/')) {
+        return false;
+    }
+    return $redirect_url;
+}, 10, 2);
 `;
 
   const remotePath = "/var/www/html/wp-content/mu-plugins/ai-wp-proxy-ssl.php";
