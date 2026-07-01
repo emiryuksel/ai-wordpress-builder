@@ -88,6 +88,10 @@ function buildUpstreamRequestHeaders(
   try {
     const publicUrl = resolveProjectSiteUrl(project);
     filtered.set("X-Forwarded-Host", new URL(publicUrl).host);
+    const slug = project.slug?.trim();
+    if (slug) {
+      filtered.set("X-Forwarded-Prefix", `/${slug}`);
+    }
   } catch {
     // ignore
   }
@@ -109,18 +113,63 @@ function filterRequestHeaders(headers: Headers): Headers {
   return filtered;
 }
 
-function attachPreviewCookie(
-  response: NextResponse,
+const WP_TEST_COOKIE = "wordpress_test_cookie";
+const WP_TEST_COOKIE_VALUE = "WP+Cookie+check";
+
+function isWordPressLoginPath(pathWithSearch: string): boolean {
+  const pathname = pathWithSearch.split("?")[0] ?? pathWithSearch;
+  return pathname === "/wp-login.php" || pathname.endsWith("/wp-login.php");
+}
+
+/** Tarayıcı test cookie göndermese bile wp-login POST'unun reddedilmesini önler. */
+function injectWordPressTestCookieForLogin(
+  headers: Headers,
+  body: ArrayBuffer | undefined,
+): void {
+  if (!body?.byteLength) {
+    return;
+  }
+
+  const params = new TextDecoder().decode(body);
+  if (!/(^|&)testcookie=1(&|$)/.test(params)) {
+    return;
+  }
+
+  const existing = headers.get("cookie") ?? "";
+  if (new RegExp(`${WP_TEST_COOKIE}=`, "i").test(existing)) {
+    return;
+  }
+
+  const injected = `${WP_TEST_COOKIE}=${WP_TEST_COOKIE_VALUE}`;
+  headers.set("cookie", existing ? `${existing}; ${injected}` : injected);
+}
+
+function isSecureRequest(request: Request): boolean {
+  return new URL(request.url).protocol === "https:";
+}
+
+/** WordPress Set-Cookie header'larını koruyarak önizleme cookie'si ekler. */
+function buildProxyNextResponse(
+  body: BodyInit | null,
+  status: number,
+  headers: Headers,
   projectId: string,
+  request: Request,
 ): NextResponse {
-  response.cookies.set(WP_PREVIEW_COOKIE, projectId, {
-    path: "/",
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: 60 * 60 * 24,
-  });
-  return response;
+  const previewParts = [
+    `${WP_PREVIEW_COOKIE}=${projectId}`,
+    "Path=/",
+    "HttpOnly",
+    "SameSite=Lax",
+    `Max-Age=${60 * 60 * 24}`,
+  ];
+  if (isSecureRequest(request)) {
+    previewParts.push("Secure");
+  }
+  headers.append("set-cookie", previewParts.join("; "));
+
+  // response.cookies.set() WordPress Set-Cookie header'larını silebilir.
+  return new NextResponse(body, { status, headers });
 }
 
 function rewriteLocation(
@@ -163,18 +212,41 @@ function resolveProxyCookiePath(request: Request, project: Project): string {
   return "/";
 }
 
+function readCookiePathAttribute(cookie: string): string {
+  const match = cookie.match(/;\s*path=([^;]*)/i);
+  return match?.[1]?.trim() || "/";
+}
+
+function mapUpstreamCookiePathToProxy(
+  upstreamPath: string,
+  request: Request,
+  project: Project,
+): string {
+  const normalized = upstreamPath.trim() || "/";
+
+  // Path=/ zaten /{slug}/... altındaki tüm isteklere uygulanır; daraltmak sorun çıkarır.
+  if (normalized === "/") {
+    return "/";
+  }
+
+  const base = resolveProxyCookiePath(request, project).replace(/\/$/, "");
+  const suffix = normalized.startsWith("/") ? normalized : `/${normalized}`;
+  return `${base}${suffix}`;
+}
+
 function rewriteSetCookieForProxy(
   cookie: string,
   request: Request,
   project: Project,
 ): string {
-  const isSecure = new URL(request.url).protocol === "https:";
+  const isSecure = isSecureRequest(request);
+  const upstreamPath = readCookiePathAttribute(cookie);
 
   let rewritten = cookie.replace(/;\s*domain=[^;]*/gi, "").trim();
 
-  // WordPress sets Path=/wp-admin but the public URL is /{slug}/wp-admin.
+  // WordPress Path=/ veya /wp-admin — public URL /{slug}/... altında.
   rewritten = rewritten.replace(/;\s*path=[^;]*/gi, "");
-  rewritten += `; Path=${resolveProxyCookiePath(request, project)}`;
+  rewritten += `; Path=${mapUpstreamCookiePathToProxy(upstreamPath, request, project)}`;
 
   if (isSecure) {
     if (!/;\s*secure\b/i.test(rewritten)) {
@@ -265,6 +337,14 @@ async function fetchUpstream(
       ? await request.arrayBuffer()
       : undefined;
 
+  const upstreamHeaders = buildUpstreamRequestHeaders(request, project);
+  if (
+    request.method === "POST" &&
+    isWordPressLoginPath(pathWithSearch)
+  ) {
+    injectWordPressTestCookieForLogin(upstreamHeaders, requestBody);
+  }
+
   const tried = new Set<string>();
   let lastError: unknown;
   let fallbackResponse: Response | null = null;
@@ -286,7 +366,7 @@ async function fetchUpstream(
 
       const response = await fetch(upstreamUrl, {
         method: request.method,
-        headers: buildUpstreamRequestHeaders(request, project),
+        headers: upstreamHeaders,
         body: requestBody,
         redirect: "manual",
         signal: controller.signal,
@@ -436,12 +516,12 @@ export async function proxySitePreviewRequest(
   );
 
   if (!shouldRewrite) {
-    return attachPreviewCookie(
-      new NextResponse(upstreamResponse.body, {
-        status: upstreamResponse.status,
-        headers: responseHeaders,
-      }),
+    return buildProxyNextResponse(
+      upstreamResponse.body,
+      upstreamResponse.status,
+      responseHeaders,
       project.id,
+      request,
     );
   }
 
@@ -456,12 +536,12 @@ export async function proxySitePreviewRequest(
     : rewriteTextForPreview(rawBody, project, proxyBase);
 
   responseHeaders.delete("content-length");
-  return attachPreviewCookie(
-    new NextResponse(rewritten, {
-      status: upstreamResponse.status,
-      headers: responseHeaders,
-    }),
+  return buildProxyNextResponse(
+    rewritten,
+    upstreamResponse.status,
+    responseHeaders,
     project.id,
+    request,
   );
 }
 
