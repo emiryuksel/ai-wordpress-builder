@@ -1,0 +1,19 @@
+{
+  "logs": [
+    {
+      "id": "c34e5909-294e-4834-ab3b-6c26d9acd2c7",
+      "timestamp": "2026-07-01T15:50:13.794Z",
+      "action": "project.repair",
+      "resourceType": "project",
+      "resourceId": "22d10baa-821d-40dc-b47b-0ea7ec51e695",
+      "metadata": {
+        "siteType": "kurumsal"
+      },
+      "ip": "::ffff:127.0.0.1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:152.0) Gecko/20100101 Firefox/152.0",
+      "userId": "8cdcccc1-c291-4e9e-8a7d-ab1a45b321db",
+      "userEmail": "r@r.com",
+      "userName": "Random Random"
+    }
+  ]
+}

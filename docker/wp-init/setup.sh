@@ -165,12 +165,9 @@ configure_reverse_proxy_ssl() {
 
   cat > "$mu_file" <<'PHP'
 <?php
-/* ai-wp:proxy-ssl — reverse proxy HTTPS/host algılaması */
+/* ai-wp:proxy-ssl — reverse proxy HTTPS algılaması */
 if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
     $_SERVER['HTTPS'] = 'on';
-}
-if (isset($_SERVER['HTTP_X_FORWARDED_HOST'])) {
-    $_SERVER['HTTP_HOST'] = $_SERVER['HTTP_X_FORWARDED_HOST'];
 }
 PHP
 

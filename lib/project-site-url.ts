@@ -98,13 +98,27 @@ export async function ensureReverseProxySslConfig(
   projectId: string,
 ): Promise<void> {
   const pluginBody = `<?php
-/* ai-wp:proxy-ssl — reverse proxy HTTPS/host algılaması */
+/* ai-wp:proxy-ssl — reverse proxy HTTPS algılaması */
 if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
     $_SERVER['HTTPS'] = 'on';
 }
-if (isset($_SERVER['HTTP_X_FORWARDED_HOST'])) {
-    $_SERVER['HTTP_HOST'] = $_SERVER['HTTP_X_FORWARDED_HOST'];
-}
+/* ai-wp:debug — geçici oturum teşhisi */
+add_action('init', function () {
+    if (!isset($_GET['ai_wp_debug'])) { return; }
+    $out = array(
+        'is_ssl' => is_ssl(),
+        'http_host' => isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : null,
+        'siteurl' => get_option('siteurl'),
+        'home' => get_option('home'),
+        'cookie_keys' => array_keys($_COOKIE),
+        'logged_in_cookie' => defined('LOGGED_IN_COOKIE') ? LOGGED_IN_COOKIE : null,
+        'user_id' => get_current_user_id(),
+        'validate_logged_in' => isset($_COOKIE[LOGGED_IN_COOKIE]) ? wp_validate_auth_cookie($_COOKIE[LOGGED_IN_COOKIE], 'logged_in') : 'no-cookie',
+    );
+    header('Content-Type: application/json');
+    echo json_encode($out);
+    exit;
+});
 `;
 
   const remotePath = "/var/www/html/wp-content/mu-plugins/ai-wp-proxy-ssl.php";

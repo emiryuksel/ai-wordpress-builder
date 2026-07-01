@@ -35,9 +35,6 @@ services:
         if (isset($$_SERVER['HTTP_X_FORWARDED_PROTO']) && $$_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
           $$_SERVER['HTTPS'] = 'on';
         }
-        if (isset($$_SERVER['HTTP_X_FORWARDED_HOST'])) {
-          $$_SERVER['HTTP_HOST'] = $$_SERVER['HTTP_X_FORWARDED_HOST'];
-        }
     volumes:
       - {{PROJECT_ID}}_wp_data:/var/www/html
       - ./wp-init:/wp-init:ro
