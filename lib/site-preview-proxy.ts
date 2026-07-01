@@ -362,6 +362,12 @@ async function fetchUpstream(
     injectWordPressTestCookieForLogin(upstreamHeaders, requestBody);
   }
 
+  // Auth/login akışında cookie ve X-Forwarded-Proto zorunlu; docker exec
+  // fallback bu header'ları taşımadığı için oturum kaybolur → devre dışı.
+  const authPath = isWordPressAuthPath(pathWithSearch);
+  const hasCookies = (upstreamHeaders.get("cookie") ?? "").length > 0;
+  const skipContainerFallback = authPath || hasCookies;
+
   const tried = new Set<string>();
   let lastError: unknown;
   let fallbackResponse: Response | null = null;
@@ -396,8 +402,14 @@ async function fetchUpstream(
         break;
       }
 
-      if (isRedirectStatus(response.status) && !fallbackResponse) {
-        fallbackResponse = response;
+      // Redirect'ler (özellikle auth) geçerli yanıttır; docker fallback'e düşme.
+      if (isRedirectStatus(response.status)) {
+        if (skipContainerFallback) {
+          return response;
+        }
+        if (!fallbackResponse) {
+          fallbackResponse = response;
+        }
         continue;
       }
 
@@ -413,7 +425,10 @@ async function fetchUpstream(
     return successResponse;
   }
 
-  if (request.method === "GET" || request.method === "HEAD") {
+  if (
+    (request.method === "GET" || request.method === "HEAD") &&
+    !skipContainerFallback
+  ) {
     const dockerResponse = await fetchWordPressFromContainer(
       project.id,
       pathWithSearch,
