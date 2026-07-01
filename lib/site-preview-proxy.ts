@@ -84,6 +84,9 @@ function buildUpstreamRequestHeaders(
     "X-Forwarded-Proto",
     requestUrl.protocol.replace(":", "") || "http",
   );
+  if (requestUrl.protocol === "https:") {
+    filtered.set("X-Forwarded-Ssl", "on");
+  }
 
   try {
     const publicUrl = resolveProjectSiteUrl(project);
@@ -119,6 +122,15 @@ const WP_TEST_COOKIE_VALUE = "WP+Cookie+check";
 function isWordPressLoginPath(pathWithSearch: string): boolean {
   const pathname = pathWithSearch.split("?")[0] ?? pathWithSearch;
   return pathname === "/wp-login.php" || pathname.endsWith("/wp-login.php");
+}
+
+function isWordPressAuthPath(pathWithSearch: string): boolean {
+  const pathname = pathWithSearch.split("?")[0] ?? pathWithSearch;
+  return (
+    isWordPressLoginPath(pathWithSearch) ||
+    pathname === "/wp-admin" ||
+    pathname.startsWith("/wp-admin/")
+  );
 }
 
 /** Tarayıcı test cookie göndermese bile wp-login POST'unun reddedilmesini önler. */
@@ -181,7 +193,8 @@ function rewriteLocation(
 }
 
 function splitCombinedSetCookieHeader(header: string): string[] {
-  return header.split(/,(?=\s*[^;,=\s]+=[^;,]*)/);
+  // Expires=Thu, 02 Jul ... içindeki virgülleri bölme; yalnızca yeni cookie adını ayır.
+  return header.split(/,(?=\s*[!#$%&'*+\-.^_`|~0-9A-Za-z]+=)/);
 }
 
 function readUpstreamSetCookies(headers: Headers): string[] {
@@ -223,13 +236,17 @@ function mapUpstreamCookiePathToProxy(
   project: Project,
 ): string {
   const normalized = upstreamPath.trim() || "/";
+  const base = resolveProxyCookiePath(request, project).replace(/\/$/, "");
 
-  // Path=/ zaten /{slug}/... altındaki tüm isteklere uygulanır; daraltmak sorun çıkarır.
-  if (normalized === "/") {
-    return "/";
+  if (!base) {
+    return normalized === "/" ? "/" : normalized;
   }
 
-  const base = resolveProxyCookiePath(request, project).replace(/\/$/, "");
+  // Oturum cookie'leri slug alt path'ine scope edilmeli (/ → /{slug}/).
+  if (normalized === "/") {
+    return `${base}/`;
+  }
+
   const suffix = normalized.startsWith("/") ? normalized : `/${normalized}`;
   return `${base}${suffix}`;
 }
@@ -474,7 +491,12 @@ export async function proxySitePreviewRequest(
 
     if (isRedirectStatus(upstreamResponse.status)) {
       const redirectLocation = upstreamResponse.headers.get("location") ?? "";
-      if (needsSiteurlSync(redirectLocation, project)) {
+      const preserveAuthRedirect =
+        request.method === "POST" || isWordPressAuthPath(pathWithSearch);
+      if (
+        !preserveAuthRedirect &&
+        needsSiteurlSync(redirectLocation, project)
+      ) {
         void syncWordPressSiteUrl(project);
         const dockerResponse = await fetchWordPressFromContainer(
           project.id,
@@ -511,6 +533,18 @@ export async function proxySitePreviewRequest(
   }
 
   const contentType = upstreamResponse.headers.get("content-type") ?? "";
+  const authPath = isWordPressAuthPath(pathWithSearch);
+
+  if (isRedirectStatus(upstreamResponse.status)) {
+    return buildProxyNextResponse(
+      upstreamResponse.body,
+      upstreamResponse.status,
+      responseHeaders,
+      project.id,
+      request,
+    );
+  }
+
   const shouldRewrite = [...REWRITE_CONTENT_TYPES].some((type) =>
     contentType.includes(type),
   );
@@ -527,12 +561,14 @@ export async function proxySitePreviewRequest(
 
   const rawBody = await upstreamResponse.text();
   const rewritten = contentType.includes("text/html")
-    ? await transformPreviewHtml(
-        rawBody,
-        project,
-        proxyBase,
-        (upstreamPath) => fetchUpstreamText(project, upstreamPath),
-      )
+    ? authPath
+      ? rewriteTextForPreview(rawBody, project, proxyBase)
+      : await transformPreviewHtml(
+          rawBody,
+          project,
+          proxyBase,
+          (upstreamPath) => fetchUpstreamText(project, upstreamPath),
+        )
     : rewriteTextForPreview(rawBody, project, proxyBase);
 
   responseHeaders.delete("content-length");
