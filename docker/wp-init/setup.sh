@@ -156,6 +156,33 @@ install_plugin() {
 
 install_wordpress_core || exit 1
 
+# Reverse proxy (HTTPS) arkasında is_ssl() doğru çalışsın; admin login döngüsünü önler.
+configure_reverse_proxy_ssl() {
+  mu_dir="/var/www/html/wp-content/mu-plugins"
+  mu_file="$mu_dir/ai-wp-proxy-ssl.php"
+
+  mkdir -p "$mu_dir" 2>/dev/null || true
+
+  cat > "$mu_file" <<'PHP'
+<?php
+/* ai-wp:proxy-ssl — reverse proxy HTTPS/host algılaması */
+if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
+    $_SERVER['HTTPS'] = 'on';
+}
+if (isset($_SERVER['HTTP_X_FORWARDED_HOST'])) {
+    $_SERVER['HTTP_HOST'] = $_SERVER['HTTP_X_FORWARDED_HOST'];
+}
+PHP
+
+  if [ -f "$mu_file" ]; then
+    echo "[wp-init] Reverse proxy SSL mu-plugin yazıldı."
+  else
+    echo "[wp-init] UYARI: Reverse proxy SSL mu-plugin yazılamadı."
+  fi
+}
+
+configure_reverse_proxy_ssl
+
 IS_WOOCOMMERCE=0
 if echo ",${SUGGESTED_PLUGINS}," | grep -q ",woocommerce,"; then
   IS_WOOCOMMERCE=1

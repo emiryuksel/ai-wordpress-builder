@@ -79,13 +79,42 @@ export async function syncWordPressSiteUrl(
       .trim()
       .replace(/\/$/, "");
 
-    if (current === normalized) {
-      return;
+    if (current !== normalized) {
+      await execWpCli(project.id, ["option", "update", "siteurl", normalized]);
+      await execWpCli(project.id, ["option", "update", "home", normalized]);
     }
-
-    await execWpCli(project.id, ["option", "update", "siteurl", normalized]);
-    await execWpCli(project.id, ["option", "update", "home", normalized]);
   } catch {
     // WP henüz hazır değil veya container erişilemiyor.
+  }
+
+  void ensureReverseProxySslConfig(project.id);
+}
+
+/**
+ * Reverse proxy (HTTPS) arkasında is_ssl() doğru dönsün diye bir mu-plugin yazar.
+ * Admin login sonrası refresh döngüsünü önler. wp-config.php'ye dokunmaz.
+ */
+export async function ensureReverseProxySslConfig(
+  projectId: string,
+): Promise<void> {
+  const pluginBody = `<?php
+/* ai-wp:proxy-ssl — reverse proxy HTTPS/host algılaması */
+if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
+    $_SERVER['HTTPS'] = 'on';
+}
+if (isset($_SERVER['HTTP_X_FORWARDED_HOST'])) {
+    $_SERVER['HTTP_HOST'] = $_SERVER['HTTP_X_FORWARDED_HOST'];
+}
+`;
+
+  const remotePath = "/var/www/html/wp-content/mu-plugins/ai-wp-proxy-ssl.php";
+
+  try {
+    await execWpCli(projectId, [
+      "eval",
+      `if (!is_dir(dirname('${remotePath}'))) { @mkdir(dirname('${remotePath}'), 0755, true); } file_put_contents('${remotePath}', base64_decode('${Buffer.from(pluginBody).toString("base64")}'));`,
+    ]);
+  } catch {
+    // WP-CLI erişilemiyor; sessizce geç.
   }
 }
