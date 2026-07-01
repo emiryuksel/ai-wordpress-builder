@@ -352,7 +352,7 @@ export function rewriteTextForPreview(
   );
 
   result = result.replace(
-    /(?<![\w./])(\/(?:wp-content|wp-includes|wp-json|wp-admin)(?:\/[^\s"'<>)]*)?)/g,
+    /(?<![\w./])(\/(?:wp-content|wp-includes|wp-json|wp-admin|wp-login\.php)(?:\/[^\s"'<>)]*)?)/g,
     (path) => {
       if (path.startsWith(proxy) || path.includes(`/${project.slug}/wp-`)) {
         return path;
