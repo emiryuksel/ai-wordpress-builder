@@ -169,7 +169,7 @@ export default function AuthModal({
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-zinc-900 outline-none focus:border-blue-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50"
-                placeholder="Örn: Ayşe Yılmaz"
+                placeholder="Adınız Soyadınız"
               />
             </label>
           ) : null}
