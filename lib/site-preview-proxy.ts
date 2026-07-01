@@ -506,12 +506,6 @@ export async function proxySitePreviewRequest(
   const proxyBase = buildProxyBase(request, project);
   const pathWithSearch = buildUpstreamPath(request, pathSegments);
 
-  // Geçici: mu-plugin ve siteurl senkronizasyonunu manuel tetikleme.
-  if (new URL(request.url).searchParams.has("ai_wp_sync")) {
-    await syncWordPressSiteUrl(project);
-    return NextResponse.json({ synced: true });
-  }
-
   let upstreamResponse: Response;
 
   try {
