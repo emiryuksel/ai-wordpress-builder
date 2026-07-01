@@ -98,21 +98,18 @@ export async function ensureReverseProxySslConfig(
   projectId: string,
 ): Promise<void> {
   const pluginBody = `<?php
-/* ai-wp:proxy-ssl — reverse proxy HTTPS algılaması */
+/* ai-wp:proxy-ssl — reverse proxy HTTPS + host normalizasyonu */
 if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
     $_SERVER['HTTPS'] = 'on';
 }
-/* ai-wp:debug — geçici redirect teşhisi */
-add_filter('redirect_canonical', function ($redirect_url, $requested_url) {
-    if (isset($_GET['ai_wp_dbg'])) {
-        @header('X-AI-Canonical-To: ' . $redirect_url, false);
-        @header('X-AI-Canonical-Req: ' . $requested_url, false);
-        @header('X-AI-Http-Host: ' . (isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : ''), false);
-        @header('X-AI-Is-Ssl: ' . (is_ssl() ? '1' : '0'), false);
-        @header('X-AI-Home: ' . get_option('home'), false);
-    }
-    return $redirect_url;
-}, 10, 2);
+/*
+ * HTTP_HOST'u siteurl host'una (127.0.0.1) sabitle. Aksi halde upstream
+ * fetch dış IP:port ile geldiğinde redirect_canonical portu kaldırıp
+ * kendine 301 atar ve sonsuz döngü oluşur.
+ */
+$_SERVER['HTTP_HOST'] = '127.0.0.1';
+$_SERVER['SERVER_NAME'] = '127.0.0.1';
+$_SERVER['SERVER_PORT'] = '80';
 `;
 
   const remotePath = "/var/www/html/wp-content/mu-plugins/ai-wp-proxy-ssl.php";
