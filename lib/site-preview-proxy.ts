@@ -63,8 +63,15 @@ function buildUpstreamPath(
   pathSegments: string[],
 ): string {
   const incoming = new URL(request.url);
-  const path =
+  let path =
     pathSegments.length > 0 ? `/${pathSegments.join("/")}` : "/";
+
+  // Apache DirectorySlash: /wp-admin -> /wp-admin/ (301). Proxy önünde bu
+  // redirect kendi kendine döngü yaratır; upstream'e baştan slash'li gönder.
+  if (/\/wp-admin$/.test(path)) {
+    path += "/";
+  }
+
   const params = new URLSearchParams(incoming.search);
   params.delete("_preview");
   params.delete("_pt");
@@ -531,6 +538,32 @@ export async function proxySitePreviewRequest(
       { error: "WordPress önizlemesi yüklenemedi." },
       { status: 502 },
     );
+  }
+
+  // Apache DirectorySlash gibi durumlarda upstream, gelen URL'nin aynısına 301
+  // döndürüp sonsuz döngü yaratabilir. Bunu tespit edip içeriği slash'li path
+  // ile doğrudan çekerek döngüyü kırıyoruz.
+  if (isRedirectStatus(upstreamResponse.status)) {
+    const loc = upstreamResponse.headers.get("location") ?? "";
+    const rewritten = rewriteLocation(loc, project, proxyBase);
+    const currentUrl = new URL(request.url);
+    const currentSelf = `${currentUrl.origin}${currentUrl.pathname}`;
+    const normalize = (value: string) => value.replace(/\/+$/, "").toLowerCase();
+
+    if (normalize(rewritten.split("?")[0]) === normalize(currentSelf)) {
+      const slashedPath =
+        pathWithSearch.includes("?") || pathWithSearch.endsWith("/")
+          ? pathWithSearch
+          : `${pathWithSearch}/`;
+      try {
+        const retry = await fetchUpstream(project, slashedPath, request);
+        if (retry.status >= 200 && retry.status < 400) {
+          upstreamResponse = retry;
+        }
+      } catch {
+        // döngü kırma başarısız; orijinal yanıtla devam.
+      }
+    }
   }
 
   const responseHeaders = buildResponseHeaders(
