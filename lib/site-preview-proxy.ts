@@ -77,9 +77,13 @@ function buildUpstreamRequestHeaders(
   project: Project,
 ): Headers {
   const filtered = filterRequestHeaders(request.headers);
+  const requestUrl = new URL(request.url);
 
   filtered.set("Host", getWordPressUpstreamHostHeader());
-  filtered.set("X-Forwarded-Proto", "https");
+  filtered.set(
+    "X-Forwarded-Proto",
+    requestUrl.protocol.replace(":", "") || "http",
+  );
 
   try {
     const publicUrl = resolveProjectSiteUrl(project);
@@ -127,7 +131,66 @@ function rewriteLocation(
   return rewriteUrlForPreview(location, project, proxyBase);
 }
 
-function buildResponseHeaders(upstreamHeaders: Headers): Headers {
+function splitCombinedSetCookieHeader(header: string): string[] {
+  return header.split(/,(?=\s*[^;,=\s]+=[^;,]*)/);
+}
+
+function readUpstreamSetCookies(headers: Headers): string[] {
+  if (typeof headers.getSetCookie === "function") {
+    return headers.getSetCookie();
+  }
+
+  const combined = headers.get("set-cookie");
+  if (!combined) {
+    return [];
+  }
+
+  return splitCombinedSetCookieHeader(combined);
+}
+
+function rewriteSetCookieForProxy(cookie: string, request: Request): string {
+  const isSecure = new URL(request.url).protocol === "https:";
+
+  let rewritten = cookie
+    .replace(/;\s*domain=[^;]*/gi, "")
+    .trim();
+
+  if (isSecure) {
+    if (!/;\s*secure\b/i.test(rewritten)) {
+      rewritten += "; Secure";
+    }
+  } else {
+    rewritten = rewritten.replace(/;\s*secure\b/gi, "");
+  }
+
+  if (!/;\s*path=/i.test(rewritten)) {
+    rewritten += "; Path=/";
+  }
+
+  if (!/;\s*samesite=/i.test(rewritten)) {
+    rewritten += "; SameSite=Lax";
+  }
+
+  return rewritten;
+}
+
+function applyProxySetCookies(
+  target: Headers,
+  upstreamHeaders: Headers,
+  request: Request,
+): void {
+  for (const cookie of readUpstreamSetCookies(upstreamHeaders)) {
+    target.append(
+      "set-cookie",
+      rewriteSetCookieForProxy(cookie, request),
+    );
+  }
+}
+
+function buildResponseHeaders(
+  upstreamHeaders: Headers,
+  request: Request,
+): Headers {
   const headers = new Headers();
 
   for (const [key, value] of upstreamHeaders.entries()) {
@@ -138,12 +201,17 @@ function buildResponseHeaders(upstreamHeaders: Headers): Headers {
     if (lower === "x-frame-options" || lower === "content-security-policy") {
       continue;
     }
+    if (lower === "set-cookie") {
+      continue;
+    }
     if (lower === "location") {
       headers.set(key, value);
       continue;
     }
     headers.set(key, value);
   }
+
+  applyProxySetCookies(headers, upstreamHeaders, request);
 
   headers.set(
     "content-security-policy",
@@ -329,7 +397,7 @@ export async function proxySitePreviewRequest(
     );
   }
 
-  const responseHeaders = buildResponseHeaders(upstreamResponse.headers);
+  const responseHeaders = buildResponseHeaders(upstreamResponse.headers, request);
 
   const location = upstreamResponse.headers.get("location");
   if (location) {
