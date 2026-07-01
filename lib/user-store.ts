@@ -187,6 +187,14 @@ export async function createUser(input: {
   return user;
 }
 
+export async function listUsers(): Promise<User[]> {
+  const store = await ensureStore();
+  return [...store.users].sort(
+    (left, right) =>
+      new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
+  );
+}
+
 export function toPublicUser(user: User) {
   return {
     id: user.id,

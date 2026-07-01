@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getSessionUser } from "@/lib/auth";
+import { logActivity } from "@/lib/activity-log";
 import { getUnsupportedMessage } from "@/lib/chat-commands";
 import { parseChatAction } from "@/lib/gemini-client";
 import { getProjectForUser, ProjectAccessError } from "@/lib/project-access";
@@ -70,6 +71,17 @@ export async function POST(request: Request) {
     if (action.actionType === "change_site_title" && action.value.trim()) {
       await updateProject(projectId, { siteTitle: action.value.trim() });
     }
+
+    logActivity({
+      action: "chat.message",
+      user,
+      resourceType: "project",
+      resourceId: projectId,
+      metadata: {
+        actionType: action.actionType,
+        applied: true,
+      },
+    });
 
     return NextResponse.json({
       success: true,

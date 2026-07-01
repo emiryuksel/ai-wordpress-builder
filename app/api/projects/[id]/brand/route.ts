@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getSessionUser } from "@/lib/auth";
+import { logActivity } from "@/lib/activity-log";
 import { applyCorporateBrand } from "@/lib/corporate-content";
 import { getProjectForUser, ProjectAccessError } from "@/lib/project-access";
 import { applyBrandSlug, resolveProjectSiteUrl } from "@/lib/project-site-url";
@@ -80,6 +81,14 @@ export async function POST(request: Request, context: RouteContext) {
 
     const latest = await getProjectForUser(projectId, user.id);
 
+    logActivity({
+      action: "project.brand.update",
+      user,
+      resourceType: "project",
+      resourceId: projectId,
+      metadata: { queued: true },
+    });
+
     return NextResponse.json({
       ok: true,
       queued: true,
@@ -105,6 +114,14 @@ export async function POST(request: Request, context: RouteContext) {
     });
 
     const latest = await getProjectForUser(projectId, user.id);
+
+    logActivity({
+      action: "project.brand.update",
+      user,
+      resourceType: "project",
+      resourceId: projectId,
+      metadata: { queued: false },
+    });
 
     return NextResponse.json({
       ok: true,

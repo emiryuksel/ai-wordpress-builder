@@ -31,9 +31,12 @@ export default function SiteHeader({
             <>
               <div className="hidden items-center gap-2 sm:flex">
                 {authContext.user.role === "admin" ? (
-                  <span className="rounded-full bg-violet-100 px-2.5 py-1 text-xs font-medium text-violet-700 dark:bg-violet-950 dark:text-violet-300">
-                    Admin
-                  </span>
+                  <Link
+                    href="/admin"
+                    className="rounded-full bg-violet-100 px-2.5 py-1 text-xs font-medium text-violet-700 transition hover:bg-violet-200 dark:bg-violet-950 dark:text-violet-300 dark:hover:bg-violet-900"
+                  >
+                    Admin panel
+                  </Link>
                 ) : null}
                 <span className="rounded-full bg-zinc-100 px-2.5 py-1 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
                   {authContext.unlimited

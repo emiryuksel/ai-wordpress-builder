@@ -1,5 +1,6 @@
 /** Uygulama rotaları ve statik yollar — site slug'ı olarak kullanılamaz. */
 export const RESERVED_SLUGS = new Set([
+  "admin",
   "api",
   "builder",
   "site-preview",

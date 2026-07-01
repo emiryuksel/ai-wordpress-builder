@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getSessionUser } from "@/lib/auth";
+import { logActivity } from "@/lib/activity-log";
 import { isBlogProject, repairBlogSite } from "@/lib/blog-content";
 import { isCorporateProject, repairCorporateSite } from "@/lib/corporate-content";
 import { getProjectForUser, ProjectAccessError } from "@/lib/project-access";
@@ -42,6 +43,16 @@ export async function POST(_request: Request, context: RouteContext) {
   }
 
   void syncWordPressSiteUrl(project);
+
+    logActivity({
+    action: "project.repair",
+    user,
+    resourceType: "project",
+    resourceId: projectId,
+    metadata: {
+      siteType: project.siteType,
+    },
+  });
 
   try {
     if (isBlogProject(project)) {

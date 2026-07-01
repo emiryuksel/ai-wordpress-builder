@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { logActivity } from "@/lib/activity-log";
 import {
   createSession,
   getAuthContext,
@@ -53,6 +54,12 @@ export async function POST(request: Request) {
     });
 
     await createSession(user.id);
+    logActivity({
+      action: "auth.register",
+      user,
+      resourceType: "user",
+      resourceId: user.id,
+    });
 
     const limit = getProjectLimitForUser(user);
 

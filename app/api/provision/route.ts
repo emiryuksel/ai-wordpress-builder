@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
 
-import { getAuthContext, requireSessionUser } from "@/lib/auth";
+import { requireSessionUser } from "@/lib/auth";
+import { logActivity } from "@/lib/activity-log";
 import { findFreePort } from "@/lib/docker-manager";
 import { parseAndSanitizeProvisionIntent } from "@/lib/gemini-client";
 import { buildProjectPublicUrl } from "@/lib/public-url";
@@ -74,7 +75,16 @@ export async function POST(request: Request) {
       userPrompt: prompt,
     });
 
-    const context = await getAuthContext();
+    logActivity({
+      action: "project.create",
+      user,
+      resourceType: "project",
+      resourceId: project.id,
+      metadata: {
+        siteTitle: project.siteTitle,
+        siteType: project.siteType,
+      },
+    });
 
     return NextResponse.json({
       projectId: project.id,
@@ -84,9 +94,9 @@ export async function POST(request: Request) {
       status: project.status,
       siteType: project.siteType,
       siteTitle: project.siteTitle,
-      projectCount: context?.projectCount ?? projectCount + 1,
-      projectLimit: context?.projectLimit ?? projectLimit ?? 0,
-      unlimited: context?.unlimited ?? unlimited,
+      projectCount: projectCount + 1,
+      projectLimit: projectLimit ?? 0,
+      unlimited,
     });
   } catch (error) {
     if (error instanceof Error && error.message === "AUTH_REQUIRED") {

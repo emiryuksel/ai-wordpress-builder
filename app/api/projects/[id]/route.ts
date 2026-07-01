@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getSessionUser } from "@/lib/auth";
+import { logActivity } from "@/lib/activity-log";
 import { removeProject } from "@/lib/docker-manager";
 import { getProjectForUser, ProjectAccessError } from "@/lib/project-access";
 import { ensureProjectSiteUrl } from "@/lib/project-site-url";
@@ -95,6 +96,16 @@ export async function DELETE(request: Request, context: RouteContext) {
     cancelProjectOperations(id);
     await removeProject(id);
     await deleteProject(id);
+
+    logActivity({
+      action: "project.delete",
+      user,
+      resourceType: "project",
+      resourceId: id,
+      metadata: {
+        siteTitle: project.siteTitle,
+      },
+    });
 
     return NextResponse.json({ ok: true });
   } catch (error) {
