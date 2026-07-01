@@ -1,6 +1,11 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 import {
+  getEnabledChatActionDescription,
+  sanitizeChatAction,
+} from "@/lib/chat-commands";
+import { normalizeAddServiceAction } from "@/lib/add-service-parse";
+import {
   type ChatAction,
   chatActionGeminiSchema,
   chatActionSchema,
@@ -40,30 +45,50 @@ Kullanıcı: Site adını TechShop yap
 Çıktı: {"actionType":"change_site_title","target":"site","value":"TechShop"}
 
 Örnek 5
-Kullanıcı: 899 TL'lik kablosuz kulaklık ekle
-Çıktı: {"actionType":"add_product","target":"elektronik","value":"","productName":"Kablosuz Kulaklık","productPrice":"899.00","productDescription":"Kablosuz bağlantı, uzun pil ömrü.","imageKeyword":"headphones"}
+Kullanıcı: Hero başlığını Yüksel İnşaat ile tanışın yap
+Çıktı: {"actionType":"change_hero_text","target":"title","value":"Yüksel İnşaat ile tanışın"}
 
 Örnek 6
-Kullanıcı: 129 TL'lik baklava kutusu ekle
-Çıktı: {"actionType":"add_product","target":"ev-yasam","value":"","productName":"Baklava Kutusu","productPrice":"129.00","productDescription":"Taze baklava çeşitleri hediye kutusunda.","imageKeyword":"dessert"}
+Kullanıcı: Hero alt başlığını 20 yıllık tecrübemizle yanınızdayız yap
+Çıktı: {"actionType":"change_hero_text","target":"subtitle","value":"20 yıllık tecrübemizle yanınızdayız"}
 
 Örnek 7
-Kullanıcı: Mağazaya deri cüzdan ekle fiyatı 450 olsun
-Çıktı: {"actionType":"add_product","target":"moda","value":"","productName":"Deri Cüzdan","productPrice":"450.00","productDescription":"El yapımı deri cüzdan.","imageKeyword":"bag"}
+Kullanıcı: CTA butonunu Teklif Al yap
+Çıktı: {"actionType":"change_hero_text","target":"cta","value":"Teklif Al"}
 
 Örnek 8
-Kullanıcı: 10 ürün ekle
+Kullanıcı: E-postayı info@yukselinsaat.com yap
+Çıktı: {"actionType":"update_contact","target":"email","value":"info@yukselinsaat.com"}
+
+Örnek 9
+Kullanıcı: Telefonu 0212 555 44 33 yap
+Çıktı: {"actionType":"update_contact","target":"phone","value":"0212 555 44 33"}
+
+Örnek 10
+Kullanıcı: Adresi Levent, İstanbul yap
+Çıktı: {"actionType":"update_contact","target":"address","value":"Levent, İstanbul"}
+
+Örnek 11
+Kullanıcı: Proje yönetimi hizmeti ekle
+Çıktı: {"actionType":"add_service","target":"service","value":"","serviceName":"Proje Yönetimi","serviceDescription":"Projelerinizi planlama aşamasından teslimata kadar yönetiyoruz.","imageKeyword":"project management"}
+
+Örnek 11b
+Kullanıcı: Mühendislik danışmanlığı hizmeti ekle
+Çıktı: {"actionType":"add_service","target":"service","value":"","serviceName":"Mühendislik Danışmanlığı","serviceDescription":"Mühendislik projelerinizde teknik danışmanlık ve planlama desteği sunuyoruz.","imageKeyword":"engineering consulting"}
+
+Örnek 12
+Kullanıcı: 899 TL'lik kablosuz kulaklık ekle
 Çıktı: {"actionType":"unsupported","target":"content","value":""}
 
-Örnek 8
+Örnek 13
 Kullanıcı: Ana temayı kırmızı yap
 Çıktı: {"actionType":"change_color","target":"theme","value":"#ff0000"}
 
-Örnek 9
+Örnek 14
 Kullanıcı: Yazıları mavi yap
 Çıktı: {"actionType":"change_color","target":"text","value":"#0000ff"}
 
-Örnek 10
+Örnek 15
 Kullanıcı: Başlıkları siyah yap
 Çıktı: {"actionType":"change_color","target":"heading","value":"#000000"}
 `.trim();
@@ -114,15 +139,19 @@ export async function parseChatAction(userMessage: string): Promise<ChatAction> 
   const genAI = getGeminiClient();
   const model = genAI.getGenerativeModel({
     model: CHAT_MODEL,
-    systemInstruction: `Sen bir WordPress site düzenleme asistanısın.
+    systemInstruction: `Sen bir kurumsal WordPress site düzenleme asistanısın.
 Kullanıcının isteğini yapılandırılmış bir aksiyona çevir.
 
 Kurallar:
-- Tema rengi, font, layout, site adı değiştirme ve tek ürün ekleme desteklenir.
-- Toplu ürün ekleme, eklenti kurma, sayfa silme gibi istekler için actionType: "unsupported" döndür.
-- Site adı değiştirme: actionType "change_site_title", value yeni site adı.
-- Ürün ekleme: actionType "add_product"; productName, productPrice (TRY, nokta ondalık), productDescription, imageKeyword (görsel eşleştirme için İngilizce anahtar kelime) doldur; target kategori: elektronik | moda | ev-yasam.
-- imageKeyword örnekleri: headphones, watch, bag, shirt, shoes, coffee, candles, yoga, dessert, food, wallet.
+- Yalnızca şu aksiyonlar desteklenir: ${getEnabledChatActionDescription()} | unsupported.
+- Ürün ekleme, e-ticaret, mağaza, WooCommerce ve benzeri istekler desteklenmez; actionType: "unsupported" döndür.
+- Toplu içerik ekleme, eklenti kurma, sayfa silme gibi istekler için actionType: "unsupported" döndür.
+- Site adı değiştirme: actionType "change_site_title", value yeni site adı (WordPress site başlığı).
+- Hero metni: actionType "change_hero_text"; target title | subtitle | cta; value yeni metin.
+- İletişim bilgisi: actionType "update_contact"; target email | phone | address; value yeni değer.
+- Hizmet ekleme: actionType "add_service"; serviceName yalnızca kısa hizmet adı olmalı (ör. "Mühendislik Danışmanlığı"), asla talimat veya açıklama metni yazma.
+- "X hizmeti ekle" isteklerinde X ifadesini serviceName yap; serviceDescription 1 cümle Türkçe tanım; imageKeyword kısa İngilizce (ör. engineering consulting).
+- add_service için target her zaman "service", value boş string.
 - Renk değerlerini hex formatında ver (# dahil).
 - "temayı X yap", "ana temayı X yap", "siteyi X renk yap" → target: "theme" (header, butonlar, vurgular — yazı rengi değil).
 - "yazıları/metni X yap" → target: "text".
@@ -149,5 +178,7 @@ ${CHAT_FEW_SHOT_EXAMPLES}`,
     throw new Error("Gemini boş yanıt döndürdü.");
   }
 
-  return chatActionSchema.parse(JSON.parse(text));
+  const parsed = chatActionSchema.parse(JSON.parse(text));
+  const sanitized = sanitizeChatAction(parsed);
+  return normalizeAddServiceAction(sanitized, userMessage);
 }

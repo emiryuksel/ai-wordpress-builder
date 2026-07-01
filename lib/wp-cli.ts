@@ -3,6 +3,7 @@ import path from "node:path";
 
 import { execWpCli, execWpCliSh, runWooCommerceSetup } from "@/lib/docker-manager";
 import { getRuntimeRoot } from "@/lib/data-paths";
+import { isChatActionEnabled } from "@/lib/chat-commands";
 import { generateProductImage } from "@/lib/gemini-image";
 import type { ChatAction } from "@/lib/intent-schema";
 import { inferProductCategory } from "@/lib/product-images";
@@ -1396,7 +1397,12 @@ async function applyAddProduct(
 export async function applyChatAction(
   projectId: string,
   action: ChatAction,
+  context?: { userMessage?: string },
 ): Promise<string> {
+  if (!isChatActionEnabled(action.actionType)) {
+    throw new Error("unsupported");
+  }
+
   switch (action.actionType) {
     case "change_color":
       return applyColorChange(projectId, action.target, action.value);
@@ -1406,6 +1412,36 @@ export async function applyChatAction(
       return applyLayoutChange(projectId, action.target, action.value);
     case "change_site_title":
       return applySiteTitleChange(projectId, action.value);
+    case "change_hero_text": {
+      const { applyCorporateHeroTextChange } = await import("@/lib/corporate-content");
+      const heroResult = await applyCorporateHeroTextChange(
+        projectId,
+        action.target,
+        action.value,
+      );
+      await flushCaches(projectId);
+      return heroResult;
+    }
+    case "update_contact": {
+      const { applyCorporateContactUpdate } = await import("@/lib/corporate-content");
+      const contactResult = await applyCorporateContactUpdate(
+        projectId,
+        action.target,
+        action.value,
+      );
+      await flushCaches(projectId);
+      return contactResult;
+    }
+    case "add_service": {
+      const { applyCorporateAddService } = await import("@/lib/corporate-content");
+      const serviceResult = await applyCorporateAddService(
+        projectId,
+        action,
+        context?.userMessage ?? "",
+      );
+      await flushCaches(projectId);
+      return serviceResult;
+    }
     case "add_product":
       return applyAddProduct(projectId, action);
     case "unsupported":
@@ -1415,9 +1451,7 @@ export async function applyChatAction(
   }
 }
 
-export function getUnsupportedMessage(): string {
-  return 'Bu istek şu an desteklenmiyor. Deneyebilirsiniz: "Site adını X yap", "499 TL\'lik kulaklık ekle", "Ana rengi lacivert yap".';
-}
+export { getUnsupportedMessage } from "@/lib/chat-commands";
 
 export function formatChatError(error: unknown): string {
   if (!(error instanceof Error)) {

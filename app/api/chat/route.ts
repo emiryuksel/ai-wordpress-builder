@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 
 import { getSessionUser } from "@/lib/auth";
+import { getUnsupportedMessage } from "@/lib/chat-commands";
 import { parseChatAction } from "@/lib/gemini-client";
 import { getProjectForUser, ProjectAccessError } from "@/lib/project-access";
 import { updateProject } from "@/lib/project-store";
 import {
   applyChatAction,
   formatChatError,
-  getUnsupportedMessage,
 } from "@/lib/wp-cli";
 
 export const runtime = "nodejs";
@@ -63,7 +63,9 @@ export async function POST(request: Request) {
       });
     }
 
-    const resultMessage = await applyChatAction(projectId, action);
+    const resultMessage = await applyChatAction(projectId, action, {
+      userMessage: message,
+    });
 
     if (action.actionType === "change_site_title" && action.value.trim()) {
       await updateProject(projectId, { siteTitle: action.value.trim() });

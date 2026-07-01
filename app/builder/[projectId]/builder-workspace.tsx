@@ -709,7 +709,7 @@ export default function BuilderWorkspace({ projectId }: BuilderWorkspaceProps) {
               Site düzenleme asistanı
             </h2>
             <p className="text-xs text-zinc-500">
-              Tema, renk ve layout değişikliklerini buradan isteyin.
+              Tema, hero, hizmet ve iletişim değişikliklerini buradan isteyin.
             </p>
           </div>
 
@@ -892,7 +892,7 @@ export default function BuilderWorkspace({ projectId }: BuilderWorkspaceProps) {
                     ? "Önce marka ayarlarını tamamlayın"
                     : !isSiteReady
                       ? "Site kurulurken bekleyin..."
-                      : 'Örn: "Başlık fontunu değiştir"'
+                      : 'Örn: "Hero başlığını değiştir" veya "Danışmanlık hizmeti ekle"'
                 }
                 className="flex-1 resize-none rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50 dark:focus:ring-blue-900"
               />

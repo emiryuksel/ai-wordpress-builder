@@ -7,6 +7,14 @@ import { execWpCli, execWpCliSh } from "@/lib/docker-manager";
 import { getRuntimeRoot } from "@/lib/data-paths";
 import { generateCorporateImage } from "@/lib/gemini-image";
 import { getGeminiClient } from "@/lib/gemini-client";
+import type { ChatAction } from "@/lib/intent-schema";
+import {
+  buildDefaultServiceDescription,
+  extractServiceNameFromMessage,
+  inferServiceImageKeyword,
+  looksLikeInvalidServiceName,
+  normalizeAddServiceAction,
+} from "@/lib/add-service-parse";
 import { applyChatAction } from "@/lib/wp-cli";
 import { isCorporateProject } from "@/lib/site-type";
 import { installCorporateWpGuard } from "@/lib/corporate-wp-guard";
@@ -728,6 +736,387 @@ export async function updateCorporateHeroBrandName(
     plan.footer.copyright = copyright;
     await savePlan(projectId, plan);
   }
+}
+
+const MAX_CORPORATE_SERVICES = 6;
+
+function extractCorporatePrimaryColor(html: string): string {
+  const match = html.match(/--corp-primary:\s*([^;}\s]+)/i);
+  return match?.[1]?.trim() || "#1e40af";
+}
+
+function extractImageUrlsByClass(html: string, className: string): string[] {
+  const urls: string[] = [];
+  const regex = new RegExp(
+    `<img[^>]*class="${className}"[^>]*src="([^"]+)"|<img[^>]*src="([^"]+)"[^>]*class="${className}"`,
+    "gi",
+  );
+  let match: RegExpExecArray | null = regex.exec(html);
+  while (match) {
+    const url = (match[1] || match[2] || "").trim();
+    if (url && !url.includes("{{CORP_IMG") && !url.includes("{{PRODUCT_IMG")) {
+      urls.push(url);
+    }
+    match = regex.exec(html);
+  }
+  return urls;
+}
+
+function isResolvableImageUrl(url: string): boolean {
+  return Boolean(url) && !url.includes("{{") && !url.startsWith(PLACEHOLDER_SVG);
+}
+
+async function getCorporateHomeHtml(projectId: string): Promise<string> {
+  const pageId = await getHomePageId(projectId);
+  if (!pageId) {
+    throw new Error("Kurumsal ana sayfa bulunamadı.");
+  }
+
+  const html = await execWpCli(projectId, [
+    "post",
+    "get",
+    pageId,
+    "--field=post_content",
+  ]);
+
+  if (!html.includes("ai-wp:corporate-home")) {
+    throw new Error("Bu site kurumsal ana sayfa içeriğine sahip değil.");
+  }
+
+  return html;
+}
+
+async function requireCorporatePlan(projectId: string): Promise<CorporateContentPlan> {
+  const plan = await loadPlan(projectId);
+  if (plan) {
+    return plan;
+  }
+
+  throw new Error(
+    "Kurumsal içerik planı bulunamadı. Site onarımını çalıştırıp tekrar deneyin.",
+  );
+}
+
+async function rebuildCorporateHomePreservingImages(
+  projectId: string,
+  plan: CorporateContentPlan,
+  primaryColor: string,
+): Promise<void> {
+  const oldHtml = await getCorporateHomeHtml(projectId);
+  const heroUrl = extractImageUrlsByClass(oldHtml, "corp-hero-img")[0];
+  const productUrls = extractImageUrlsByClass(oldHtml, "corp-card-img");
+  const galleryUrls = extractGalleryImageUrls(oldHtml);
+
+  let html = buildCorporatePageHtml(plan, primaryColor);
+
+  if (heroUrl && isResolvableImageUrl(heroUrl)) {
+    html = html.replace(CORP_IMAGE_SLOT.hero(), heroUrl);
+  }
+
+  productUrls.forEach((url, index) => {
+    if (isResolvableImageUrl(url)) {
+      html = html.replace(CORP_IMAGE_SLOT.product(index), url);
+    }
+  });
+
+  galleryUrls.forEach((url, index) => {
+    if (isResolvableImageUrl(url)) {
+      html = html.replace(CORP_IMAGE_SLOT.gallery(index), url);
+    }
+  });
+
+  await savePlan(projectId, plan);
+  await updateHomeContent(projectId, html);
+}
+
+function extractGalleryImageUrls(html: string): string[] {
+  const urls: string[] = [];
+  const regex =
+    /<figure class="corp-gallery-item"><img[^>]*src="([^"]+)"[^>]*>/gi;
+  let match: RegExpExecArray | null = regex.exec(html);
+  while (match) {
+    const url = match[1]?.trim() ?? "";
+    if (isResolvableImageUrl(url)) {
+      urls.push(url);
+    }
+    match = regex.exec(html);
+  }
+  return urls;
+}
+
+async function getPageIdBySlug(
+  projectId: string,
+  slug: string,
+): Promise<string | null> {
+  try {
+    const id = (
+      await execWpCli(projectId, [
+        "post",
+        "list",
+        "--post_type=page",
+        `--name=${slug}`,
+        "--field=ID",
+      ])
+    ).trim();
+    return id.split("\n")[0] || null;
+  } catch {
+    return null;
+  }
+}
+
+async function syncContactPage(
+  projectId: string,
+  footer: CorporateContentPlan["footer"],
+): Promise<void> {
+  const contactId = await getPageIdBySlug(projectId, "iletisim");
+  if (!contactId) {
+    return;
+  }
+
+  const content = `<p><strong>E-posta:</strong> ${escapeHtml(footer.email)}<br><strong>Telefon:</strong> ${escapeHtml(footer.phone)}<br><strong>Adres:</strong> ${escapeHtml(footer.address)}</p>`;
+  const file = path.join(getRuntimeRoot(), projectId, "corporate-images", "contact.html");
+  await fs.mkdir(path.dirname(file), { recursive: true });
+  await fs.writeFile(file, content, "utf8");
+  await execWpCliSh(
+    projectId,
+    `wp post update ${contactId} --post_content="$(cat /corporate-images/contact.html)" --path=/var/www/html`,
+    120_000,
+  );
+}
+
+/** Hero başlık, alt başlık veya CTA metnini günceller. */
+export async function applyCorporateHeroTextChange(
+  projectId: string,
+  target: string,
+  value: string,
+): Promise<string> {
+  const normalizedTarget = target.trim().toLowerCase();
+  const newValue = value.trim();
+
+  if (!newValue) {
+    throw new Error("Hero metni boş olamaz.");
+  }
+
+  const fieldLabels: Record<string, string> = {
+    title: "başlık",
+    subtitle: "alt başlık",
+    cta: "CTA butonu",
+  };
+
+  if (!fieldLabels[normalizedTarget]) {
+    throw new Error(
+      `Geçersiz hero alanı: ${target}. title, subtitle veya cta kullanın.`,
+    );
+  }
+
+  const html = await getCorporateHomeHtml(projectId);
+  const plan = await requireCorporatePlan(projectId);
+  const escapedValue = escapeHtml(newValue);
+  let updated = html;
+
+  if (normalizedTarget === "title") {
+    updated = html.replace(
+      /(<section id="corp-hero"[^>]*>[\s\S]*?<h1>)([^<]*)(<\/h1>)/i,
+      `$1${escapedValue}$3`,
+    );
+    plan.hero.title = newValue;
+  } else if (normalizedTarget === "subtitle") {
+    updated = html.replace(
+      /(<section id="corp-hero"[^>]*>[\s\S]*?<h1>[^<]*<\/h1>\s*<p>)([^<]*)(<\/p>)/i,
+      `$1${escapedValue}$3`,
+    );
+    plan.hero.subtitle = newValue;
+  } else {
+    updated = html.replace(
+      /(<a class="corp-cta"[^>]*href="#urunler"[^>]*>)([^<]*)(<\/a>)/i,
+      `$1${escapedValue}$3`,
+    );
+    if (updated === html) {
+      updated = html.replace(
+        /(<a class="corp-cta"[^>]*>)([^<]*)(<\/a>)/i,
+        `$1${escapedValue}$3`,
+      );
+    }
+    plan.hero.ctaLabel = newValue;
+  }
+
+  if (updated === html) {
+    throw new Error("Hero alanı güncellenemedi. Sayfa yapısı beklenenden farklı.");
+  }
+
+  await savePlan(projectId, plan);
+  await updateHomeContent(projectId, updated);
+
+  return `Hero ${fieldLabels[normalizedTarget]} "${newValue}" olarak güncellendi.`;
+}
+
+/** Footer ve iletişim sayfasındaki iletişim bilgisini günceller. */
+export async function applyCorporateContactUpdate(
+  projectId: string,
+  target: string,
+  value: string,
+): Promise<string> {
+  const normalizedTarget = target.trim().toLowerCase();
+  const newValue = value.trim();
+
+  if (!newValue) {
+    throw new Error("İletişim bilgisi boş olamaz.");
+  }
+
+  const fieldLabels: Record<string, string> = {
+    email: "e-posta",
+    phone: "telefon",
+    address: "adres",
+  };
+
+  if (!fieldLabels[normalizedTarget]) {
+    throw new Error(
+      `Geçersiz iletişim alanı: ${target}. email, phone veya address kullanın.`,
+    );
+  }
+
+  if (normalizedTarget === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newValue)) {
+    throw new Error("Geçerli bir e-posta adresi girin.");
+  }
+
+  const html = await getCorporateHomeHtml(projectId);
+  const plan = await requireCorporatePlan(projectId);
+  const escapedValue = escapeHtml(newValue);
+  let updated = html;
+
+  if (normalizedTarget === "email") {
+    updated = html.replace(
+      /(<footer id="corp-footer"[\s\S]*?<p>E-posta:\s*)([^<]*)(<\/p>)/i,
+      `$1${escapedValue}$3`,
+    );
+    plan.footer.email = newValue;
+  } else if (normalizedTarget === "phone") {
+    updated = html.replace(
+      /(<footer id="corp-footer"[\s\S]*?<p>Telefon:\s*)([^<]*)(<\/p>)/i,
+      `$1${escapedValue}$3`,
+    );
+    plan.footer.phone = newValue;
+  } else {
+    const footerAddressMatch = html.match(
+      /<footer id="corp-footer"[\s\S]*?<p>Telefon:[^<]*<\/p>\s*<p>([^<]*)<\/p>/i,
+    );
+    if (!footerAddressMatch) {
+      throw new Error("Adres satırı bulunamadı.");
+    }
+    updated = html.replace(
+      /(<footer id="corp-footer"[\s\S]*?<p>Telefon:[^<]*<\/p>\s*<p>)([^<]*)(<\/p>)/i,
+      `$1${escapedValue}$3`,
+    );
+    plan.footer.address = newValue;
+  }
+
+  if (updated === html) {
+    throw new Error("İletişim bilgisi güncellenemedi.");
+  }
+
+  await savePlan(projectId, plan);
+  await updateHomeContent(projectId, updated);
+  await syncContactPage(projectId, plan.footer);
+
+  return `${fieldLabels[normalizedTarget].charAt(0).toUpperCase()}${fieldLabels[normalizedTarget].slice(1)} "${newValue}" olarak güncellendi.`;
+}
+
+function buildServiceImagePrompt(
+  serviceName: string,
+  description: string,
+  imageKeyword: string,
+): string {
+  const keyword = imageKeyword.trim() || serviceName;
+  return `Professional corporate service illustration for ${keyword}. ${description}. Modern business context, clean composition`;
+}
+
+async function removeInvalidCorporateServices(projectId: string): Promise<number> {
+  const plan = await loadPlan(projectId);
+  if (!plan) {
+    return 0;
+  }
+
+  const validProducts = plan.products.filter(
+    (product) => !looksLikeInvalidServiceName(product.name),
+  );
+
+  if (validProducts.length === plan.products.length) {
+    return 0;
+  }
+
+  const removedCount = plan.products.length - validProducts.length;
+  plan.products = validProducts;
+
+  const html = await getCorporateHomeHtml(projectId);
+  const primaryColor = extractCorporatePrimaryColor(html);
+  await rebuildCorporateHomePreservingImages(projectId, plan, primaryColor);
+  return removedCount;
+}
+
+/** Hizmetler bölümüne yeni kart ekler ve AI görseli üretir. */
+export async function applyCorporateAddService(
+  projectId: string,
+  action: ChatAction,
+  userMessage = "",
+): Promise<string> {
+  await removeInvalidCorporateServices(projectId);
+
+  const normalized = normalizeAddServiceAction(action, userMessage);
+  const serviceName = normalized.serviceName?.trim() ?? "";
+  const serviceDescription =
+    normalized.serviceDescription?.trim() ||
+    (serviceName ? buildDefaultServiceDescription(serviceName) : "");
+  const imageKeyword =
+    normalized.imageKeyword?.trim() ||
+    (serviceName ? inferServiceImageKeyword(serviceName) : "corporate business service");
+
+  if (!serviceName || looksLikeInvalidServiceName(serviceName)) {
+    const hint = extractServiceNameFromMessage(userMessage);
+    throw new Error(
+      hint
+        ? `Hizmet adı anlaşılamadı. Şunu deneyin: "${hint} hizmeti ekle"`
+        : 'Hizmet adı belirtilmedi. Örn: "Mühendislik danışmanlığı hizmeti ekle"',
+    );
+  }
+
+  const plan = await requireCorporatePlan(projectId);
+
+  const duplicate = plan.products.some(
+    (product) => product.name.trim().toLowerCase() === serviceName.toLowerCase(),
+  );
+  if (duplicate) {
+    throw new Error(`"${serviceName}" hizmeti zaten listede var.`);
+  }
+
+  if (plan.products.length >= MAX_CORPORATE_SERVICES) {
+    throw new Error(
+      `En fazla ${MAX_CORPORATE_SERVICES} hizmet eklenebilir. Önce mevcut bir hizmeti kaldırın.`,
+    );
+  }
+
+  const html = await getCorporateHomeHtml(projectId);
+  const primaryColor = extractCorporatePrimaryColor(html);
+  const imagePrompt = buildServiceImagePrompt(
+    serviceName,
+    serviceDescription,
+    imageKeyword,
+  );
+
+  plan.products.push({
+    name: serviceName,
+    description: serviceDescription,
+    imagePrompt,
+  });
+
+  await rebuildCorporateHomePreservingImages(projectId, plan, primaryColor);
+
+  const { getProject } = await import("@/lib/project-store");
+  const project = await getProject(projectId);
+  const userPrompt = project?.prompt?.trim() || serviceName;
+
+  await enrichCorporateAiImages(projectId, userPrompt);
+
+  return `"${serviceName}" hizmeti siteye eklendi. AI ile hizmete özel görsel üretildi.`;
 }
 
 async function importImage(
