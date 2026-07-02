@@ -256,38 +256,25 @@ async function removeMarkedCustomCss(
   await runPhp(projectId, php);
 }
 
+/**
+ * Geriye dönük uyumluluk için korunan giriş noktası. Eskiden ayrı bir
+ * "ai-wp:blog-chrome" CSS bloğu yazıyordu; bu blok "ai-wp:theme" ile çakışıp
+ * header'ı yanlış renge (ör. eski lacivert varsayılana) döndürüyordu. Artık tek
+ * kaynak olarak marka teması akışına delege ediyoruz; böylece yalnızca
+ * "ai-wp:theme" marker'ı kullanılır ve iki blok bir arada asla bulunmaz.
+ */
 export async function applyAstraBlogChrome(
   projectId: string,
   primaryColor: string,
 ): Promise<void> {
-  const primary = normalizeHexColor(primaryColor);
-  const onPrimary = contrastingTextColor(primary);
-
-  await removeMarkedCustomCss(projectId, "ai-wp:theme");
-
-  const settings: Record<string, string> = {
-    "theme-color": primary,
-    "link-color": primary,
-    "heading-base-color": "#0f172a",
-    "text-color": "#475569",
-    "header-color-site-title": onPrimary,
-    "header-color-h-menu-link": onPrimary,
-    "header-color-h-menu-link-hover": onPrimary,
-    "footer-color": "#64748b",
-    "footer-heading-color": "#0f172a",
-  };
-
-  for (const [key, value] of Object.entries(settings)) {
-    await updateAstraSetting(projectId, key, value);
-  }
-
-  await setAstraHeaderBackground(projectId, primary);
+  // Eski kurulumlardan kalmış olabilecek çakışan blog-chrome bloğunu temizle.
+  await removeMarkedCustomCss(projectId, "ai-wp:blog-chrome");
+  await applyAstraBrandTheme(projectId, primaryColor);
   await fixAstraHeaderMenuDuplication(projectId);
-
   await setMarkedCustomCss(
     projectId,
-    "ai-wp:blog-chrome",
-    buildAstraBlogChromeCss(primary),
+    "ai-wp:theme",
+    buildBrandThemeCss(normalizeHexColor(primaryColor)),
   );
   await flushCaches(projectId);
 }
@@ -441,171 +428,6 @@ function buildAstraHeaderAlignCss(): string {
   font-size: 1.05rem !important;
   padding: 0.4rem 0.2rem !important;
 }`;
-}
-
-function buildAstraBlogChromeCss(primary: string): string {
-  const brand = normalizeHexColor(primary);
-  const onBrand = contrastingTextColor(brand);
-  const onBrandMuted = mutedOnColor(onBrand);
-  const hoverBg =
-    onBrand === "#ffffff" ? lightenColor(brand, 0.14) : darkenColor(brand, 0.1);
-  const footerBg = darkenColor(brand, 0.18);
-  const onFooter = contrastingTextColor(footerBg);
-  const onFooterMuted = mutedOnColor(onFooter);
-  return `/* ai-wp:blog-chrome */
-#masthead,
-.ast-primary-header-bar,
-.main-header-bar,
-.site-header,
-.site-primary-header-wrap,
-.ast-above-header-wrap,
-.ast-below-header-wrap,
-#ast-desktop-header .main-header-bar,
-#masthead .main-header-bar {
-  width: 100vw !important;
-  max-width: 100vw !important;
-  margin-left: calc(50% - 50vw) !important;
-  margin-right: calc(50% - 50vw) !important;
-  box-sizing: border-box !important;
-  background-color: ${brand} !important;
-  background-image: none !important;
-  border-bottom: 1px solid ${darkenColor(brand, 0.12)} !important;
-  box-shadow: none !important;
-}
-#masthead {
-  position: relative !important;
-}
-#masthead::before {
-  content: "" !important;
-  display: block !important;
-  position: absolute !important;
-  z-index: 0 !important;
-  left: 50% !important;
-  width: 100vw !important;
-  margin-left: -50vw !important;
-  top: 0 !important;
-  bottom: 0 !important;
-  background-color: ${brand} !important;
-  border-bottom: 1px solid ${darkenColor(brand, 0.12)} !important;
-}
-#masthead > * {
-  position: relative !important;
-  z-index: 1 !important;
-}
-.ast-primary-header-bar .ast-container,
-.ast-primary-header-bar .ast-builder-grid-row-container,
-.site-primary-header-wrap .ast-builder-grid-row-container,
-.main-header-bar-wrap {
-  background: transparent !important;
-  background-color: transparent !important;
-  box-shadow: none !important;
-}
-.site-below-footer-wrap,
-.site-primary-footer-wrap {
-  width: 100vw !important;
-  max-width: 100vw !important;
-  margin-left: calc(50% - 50vw) !important;
-  margin-right: calc(50% - 50vw) !important;
-  box-sizing: border-box !important;
-  position: relative !important;
-  background-color: ${footerBg} !important;
-}
-.site-below-footer-wrap::before {
-  content: "" !important;
-  display: block !important;
-  position: absolute !important;
-  z-index: 0 !important;
-  left: 50% !important;
-  width: 100vw !important;
-  margin-left: -50vw !important;
-  top: 0 !important;
-  bottom: 0 !important;
-  background-color: ${footerBg} !important;
-}
-.site-below-footer-wrap > * {
-  position: relative !important;
-  z-index: 1 !important;
-}
-.site-below-footer-wrap .ast-builder-grid-row-container {
-  background: transparent !important;
-}
-.site-below-footer-wrap,
-.site-below-footer-wrap .ast-footer-copyright,
-.site-primary-footer-wrap {
-  color: ${onFooterMuted} !important;
-}
-.site-below-footer-wrap a,
-.site-primary-footer-wrap a {
-  color: ${onFooter} !important;
-}
-.site-title a,
-.site-title a:hover,
-.site-header .site-title a,
-#masthead .site-title a,
-.ast-site-identity .site-title a,
-.ast-site-identity .site-title {
-  color: ${onBrand} !important;
-}
-.site-description,
-.site-header .site-description,
-.ast-site-identity .site-description {
-  color: ${onBrandMuted} !important;
-}
-.main-navigation a,
-.main-header-menu a,
-.ast-main-header-bar-alignment a,
-.ast-builder-menu-1 .menu-item > .menu-link,
-.ast-builder-menu-1 .menu-link,
-.ast-builder-menu-1 .menu-item.current-menu-item > .menu-link,
-.ast-builder-menu .menu-item > a {
-  color: ${onBrand} !important;
-}
-.main-navigation a:hover,
-.main-header-menu a:hover,
-.ast-builder-menu-1 .menu-item:hover > .menu-link,
-.ast-builder-menu .menu-item > a:hover {
-  color: ${onBrand} !important;
-  background-color: ${hoverBg} !important;
-}
-.ast-builder-menu-2,
-#ast-desktop-header .ast-builder-menu-2,
-.site-header-primary-section-right .ast-builder-menu-2,
-.ast-header-menu-2,
-.secondary-menu-bar-navigation {
-  display: none !important;
-}
-body.home .entry-header,
-body.home .ast-single-entry-header,
-.home .entry-header {
-  display: none !important;
-}
-.site-footer,
-.ast-footer-overlay,
-.site-footer .footer-widget-area {
-  background-color: ${footerBg} !important;
-  border-top: 1px solid ${footerBg} !important;
-}
-.site-footer .widget-title,
-.footer-widget-area .widget-title {
-  color: ${onFooter} !important;
-}
-.site-footer,
-.site-footer a,
-.footer-widget-area {
-  color: ${onFooterMuted} !important;
-}
-.site-footer a {
-  color: ${onFooter} !important;
-}
-.ast-article-post .post-thumb img,
-.ast-blog-featured-section img,
-.blog-layout-1 .post-thumb img {
-  width: 100% !important;
-  height: auto !important;
-  object-fit: cover !important;
-  min-height: 180px !important;
-  background-color: #e2e8f0 !important;
-}${buildAstraHeaderAlignCss()}`;
 }
 
 function buildBrandThemeCss(color: string): string {
@@ -841,6 +663,9 @@ async function applyAstraBrandTheme(
   const primary = normalizeHexColor(color);
   const onPrimary = contrastingTextColor(primary);
 
+  // Eski/çakışan header CSS bloklarını temizle. blog-chrome bloğu (eski lacivert
+  // varsayılan) ai-wp:theme ile aynı elemanları hedefleyip header'ı yanlış renge
+  // döndürdüğü için mutlaka kaldırılmalı.
   await removeMarkedCustomCss(projectId, "ai-wp:blog-chrome");
 
   const settings: Record<string, string> = {
