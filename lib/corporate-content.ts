@@ -23,6 +23,32 @@ export { isCorporateProject };
 
 const CORPORATE_MODEL = "gemini-2.5-flash-lite";
 const AI_IMAGE_CONCURRENCY = 4;
+
+/** Zemin rengine göre okunaklı yazı rengi (basit WCAG luminance). */
+function corpOnColor(hex: string): string {
+  const m = hex.trim().replace(/^#/, "");
+  const full =
+    m.length === 3
+      ? m
+          .split("")
+          .map((c) => c + c)
+          .join("")
+      : m;
+  if (!/^[0-9a-fA-F]{6}$/.test(full)) {
+    return "#ffffff";
+  }
+  const channel = (v: number) => {
+    const c = v / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  const r = channel(Number.parseInt(full.slice(0, 2), 16));
+  const g = channel(Number.parseInt(full.slice(2, 4), 16));
+  const b = channel(Number.parseInt(full.slice(4, 6), 16));
+  const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  const contrastWhite = 1.05 / (lum + 0.05);
+  const contrastDark = (lum + 0.05) / 0.09;
+  return contrastWhite >= contrastDark ? "#ffffff" : "#0f172a";
+}
 const CORPORATE_IMAGE_MAX_ROUNDS = 6;
 const CORPORATE_JOB_MAX_ATTEMPTS = 5;
 const HERO_IMAGE_MAX_ATTEMPTS = 8;
@@ -409,10 +435,10 @@ export function buildCorporatePageHtml(
 
   return `<!-- ai-wp:corporate-home -->
 <style>
-.corp-page{--corp-primary:${primaryColor};color:#0f172a}
+.corp-page{--corp-primary:${primaryColor};--corp-on-primary:${corpOnColor(primaryColor)};color:#0f172a}
 .corp-hero{display:grid;grid-template-columns:1.1fr .9fr;gap:2.5rem;align-items:center;width:100vw;max-width:100vw;margin-left:calc(50% - 50vw);margin-right:calc(50% - 50vw);padding:3.5rem max(1.25rem,calc(50vw - 600px + 1.25rem));box-sizing:border-box;background:linear-gradient(105deg,#f1f5f9 0%,#e8eef6 45%,#dde7f0 100%);border-radius:0;border-bottom:1px solid #cbd5e1;margin-bottom:2.5rem;box-shadow:inset 0 -1px 0 rgba(15,23,42,.05)}
 .corp-hero h1{font-size:2.5rem;font-weight:700;line-height:1.2;margin:0 0 1rem}.corp-hero p{color:#475569;margin:0 0 1.5rem;font-size:1.05rem}
-.corp-cta{display:inline-block;background:var(--corp-primary);color:#fff;padding:.85rem 1.75rem;border-radius:8px;text-decoration:none;font-weight:600}
+.corp-cta{display:inline-block;background:var(--corp-primary);color:var(--corp-on-primary);padding:.85rem 1.75rem;border-radius:8px;text-decoration:none;font-weight:600}
 .corp-hero-img{width:100%;border-radius:10px;object-fit:cover;min-height:280px;box-shadow:0 18px 40px rgba(15,23,42,.12)}
 .corp-section{padding:2rem 0}.corp-section h2{font-size:1.75rem;margin-bottom:1.25rem}
 .corp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1.25rem}
@@ -648,10 +674,23 @@ export async function updateCorporatePagePrimaryColor(
   }
 
   const normalized = primaryColor.trim().toLowerCase();
-  const updated = html.replace(
+  let updated = html.replace(
     /--corp-primary:\s*[^;]+/i,
     `--corp-primary: ${normalized}`,
   );
+  const onPrimary = corpOnColor(normalized);
+  if (/--corp-on-primary:/i.test(updated)) {
+    updated = updated.replace(
+      /--corp-on-primary:\s*[^;]+/i,
+      `--corp-on-primary: ${onPrimary}`,
+    );
+  } else {
+    // Eski içerikte değişken yoksa --corp-primary'den hemen sonra ekle.
+    updated = updated.replace(
+      /(--corp-primary:\s*[^;]+;?)/i,
+      `$1--corp-on-primary: ${onPrimary};`,
+    );
+  }
 
   if (updated !== html) {
     await updateHomeContent(projectId, updated);
@@ -1344,7 +1383,6 @@ export async function applyCorporateBrand(
   projectId: string,
   input: CorporateBrandInput,
 ): Promise<string[]> {
-  const { applyAstraBlogChrome } = await import("@/lib/wp-cli");
   const messages: string[] = [];
 
   if (input.brandName?.trim()) {
@@ -1379,7 +1417,14 @@ export async function applyCorporateBrand(
   if (input.primaryColor?.trim()) {
     const color = input.primaryColor.trim();
     await updateCorporatePagePrimaryColor(projectId, color);
-    await applyAstraBlogChrome(projectId, color);
+    // Marka rengini header/buton/vurgulara uygula (beyaz blog-chrome yerine
+    // renkli marka teması). change_color "theme" akışı blog-chrome'u kaldırıp
+    // ai-wp:theme CSS'ini kurar.
+    await applyChatAction(projectId, {
+      actionType: "change_color",
+      target: "theme",
+      value: color,
+    });
     messages.push("Marka rengi güncellendi.");
   }
 

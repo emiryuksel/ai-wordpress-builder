@@ -8,6 +8,41 @@ import { generateProductImage } from "@/lib/gemini-image";
 import type { ChatAction } from "@/lib/intent-schema";
 import { inferProductCategory } from "@/lib/product-images";
 
+const COLOR_NAME_MAP: Record<string, string> = {
+  kırmızı: "#dc2626",
+  kirmizi: "#dc2626",
+  red: "#dc2626",
+  mavi: "#2563eb",
+  blue: "#2563eb",
+  "koyu mavi": "#1e3a8a",
+  lacivert: "#1e3a8a",
+  "navy": "#1e3a8a",
+  yeşil: "#16a34a",
+  yesil: "#16a34a",
+  green: "#16a34a",
+  turuncu: "#ea580c",
+  orange: "#ea580c",
+  mor: "#7c3aed",
+  purple: "#7c3aed",
+  pembe: "#db2777",
+  pink: "#db2777",
+  sarı: "#ca8a04",
+  sari: "#ca8a04",
+  yellow: "#ca8a04",
+  siyah: "#111827",
+  black: "#111827",
+  beyaz: "#ffffff",
+  white: "#ffffff",
+  gri: "#4b5563",
+  gray: "#4b5563",
+  grey: "#4b5563",
+  kahverengi: "#92400e",
+  brown: "#92400e",
+  turkuaz: "#0d9488",
+  teal: "#0d9488",
+  cyan: "#0891b2",
+};
+
 const ASTRA_COLOR_MAP: Record<string, string> = {
   primary: "theme-color",
   theme: "theme-color",
@@ -79,6 +114,16 @@ function normalizeHexColor(value: string): string {
 
   if (/^[0-9a-fA-F]{6}$/.test(trimmed)) {
     return `#${trimmed.toLowerCase()}`;
+  }
+
+  if (/^#[0-9a-fA-F]{3}$/.test(trimmed)) {
+    const [, r, g, b] = trimmed.match(/^#(.)(.)(.)$/) as RegExpMatchArray;
+    return `#${r}${r}${g}${g}${b}${b}`.toLowerCase();
+  }
+
+  const named = COLOR_NAME_MAP[trimmed.toLowerCase()];
+  if (named) {
+    return named;
   }
 
   throw new Error(`Geçersiz renk değeri: ${value}`);
@@ -272,13 +317,63 @@ function isBrandThemeTarget(target: string): boolean {
   );
 }
 
-function contrastingTextColor(hex: string): string {
+function hexToRgb(hex: string): { r: number; g: number; b: number } {
   const normalized = normalizeHexColor(hex);
-  const r = Number.parseInt(normalized.slice(1, 3), 16);
-  const g = Number.parseInt(normalized.slice(3, 5), 16);
-  const b = Number.parseInt(normalized.slice(5, 7), 16);
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return luminance > 0.55 ? "#0f172a" : "#ffffff";
+  return {
+    r: Number.parseInt(normalized.slice(1, 3), 16),
+    g: Number.parseInt(normalized.slice(3, 5), 16),
+    b: Number.parseInt(normalized.slice(5, 7), 16),
+  };
+}
+
+function relativeLuminance(hex: string): number {
+  const { r, g, b } = hexToRgb(hex);
+  const channel = (value: number) => {
+    const c = value / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
+}
+
+function contrastRatio(a: string, b: string): number {
+  const la = relativeLuminance(a);
+  const lb = relativeLuminance(b);
+  const lighter = Math.max(la, lb);
+  const darker = Math.min(la, lb);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+/** Zemin rengine göre en okunaklı yazı rengini (beyaz/koyu) WCAG kontrastıyla seçer. */
+function contrastingTextColor(hex: string): string {
+  const dark = "#0f172a";
+  const light = "#ffffff";
+  return contrastRatio(hex, light) >= contrastRatio(hex, dark) ? light : dark;
+}
+
+function clampChannel(value: number): number {
+  return Math.max(0, Math.min(255, Math.round(value)));
+}
+
+function toHex(value: number): string {
+  return clampChannel(value).toString(16).padStart(2, "0");
+}
+
+/** Rengi verilen oranda koyulaştırır (0-1). Hover/border tonları için. */
+function darkenColor(hex: string, amount: number): string {
+  const { r, g, b } = hexToRgb(hex);
+  const f = 1 - amount;
+  return `#${toHex(r * f)}${toHex(g * f)}${toHex(b * f)}`;
+}
+
+/** Rengi verilen oranda beyaza doğru açar (0-1). */
+function lightenColor(hex: string, amount: number): string {
+  const { r, g, b } = hexToRgb(hex);
+  return `#${toHex(r + (255 - r) * amount)}${toHex(g + (255 - g) * amount)}${toHex(b + (255 - b) * amount)}`;
+}
+
+/** Yazı rengini zemine göre hafif tonlar (opaklık yerine gerçek hex ile). */
+function mutedOnColor(onPrimary: string): string {
+  return onPrimary === "#ffffff" ? "rgba(255,255,255,0.82)" : "rgba(15,23,42,0.72)";
 }
 
 function buildAstraHeaderAlignCss(): string {
@@ -484,6 +579,14 @@ body.home .ast-single-entry-header,
 function buildBrandThemeCss(color: string): string {
   const primary = normalizeHexColor(color);
   const onPrimary = contrastingTextColor(primary);
+  const onPrimaryMuted = mutedOnColor(onPrimary);
+  // Hover tonu: koyu zeminde açılır, açık zeminde koyulaşır (görünür kalsın).
+  const hoverBg =
+    onPrimary === "#ffffff" ? lightenColor(primary, 0.14) : darkenColor(primary, 0.1);
+  const buttonHoverBg = darkenColor(primary, 0.12);
+  const footerBg = darkenColor(primary, 0.18);
+  const onFooter = contrastingTextColor(footerBg);
+  const onFooterMuted = mutedOnColor(onFooter);
   const fullBleed = `
   width: 100vw !important;
   max-width: 100vw !important;
@@ -497,15 +600,20 @@ function buildBrandThemeCss(color: string): string {
 .site-header,
 header.site-header,
 .ast-primary-header-bar,
+.main-header-bar,
 .site-primary-header-wrap,
+.ast-above-header-wrap,
+.ast-below-header-wrap,
 #ast-desktop-header,
 #ast-mobile-header,
 .ast-mobile-header-wrap,
 .ast-mobile-header-wrap .ast-primary-header-bar,
+.ast-theme-transparent-header #masthead,
 .storefront-primary-navigation {
   ${fullBleed}
   background-color: ${primary} !important;
-  border-bottom-color: ${primary} !important;
+  background-image: none !important;
+  border-bottom-color: ${darkenColor(primary, 0.12)} !important;
 }
 #masthead {
   position: relative !important;
@@ -534,12 +642,14 @@ header.site-header,
 .site-primary-header-wrap .ast-builder-grid-row-container,
 #ast-desktop-header .ast-builder-grid-row-container,
 .main-header-container,
+.main-header-bar-wrap,
 .ast-mobile-header-wrap .ast-primary-header-bar .ast-builder-grid-row-container {
   background: transparent !important;
+  background-color: transparent !important;
   box-shadow: none !important;
 }
 .site-header .site-title a,
-.site-header .site-description,
+.site-header .site-title,
 .site-header .main-navigation ul li a,
 #masthead a,
 #masthead .site-title a,
@@ -550,15 +660,21 @@ header.site-header,
 .ast-builder-menu-1 .menu-link,
 .ast-builder-menu .menu-item > a,
 .ast-header-break-point .main-header-menu a,
-#ast-hf-menu-1 .menu-link {
+#ast-hf-menu-1 .menu-link,
+.ast-mobile-menu-buttons-minimal {
   color: ${onPrimary} !important;
+}
+.site-header .site-description,
+#masthead .site-description {
+  color: ${onPrimaryMuted} !important;
 }
 .ast-builder-menu-1 .menu-item:hover > .menu-link,
 .main-header-menu a:hover,
 .ast-builder-menu .menu-item > a:hover,
+#masthead a:hover,
 .ast-builder-menu-1 .menu-item.current-menu-item > .menu-link {
   color: ${onPrimary} !important;
-  opacity: 0.88 !important;
+  background-color: ${hoverBg} !important;
 }
 .button,
 button,
@@ -574,12 +690,51 @@ input[type="button"],
   border-color: ${primary} !important;
   color: ${onPrimary} !important;
 }
+.button:hover,
+button:hover,
+input[type="submit"]:hover,
+input[type="button"]:hover,
+.wp-block-button__link:hover,
+.woocommerce a.button:hover,
+.woocommerce button.button:hover,
+.corp-cta:hover {
+  background-color: ${buttonHoverBg} !important;
+  border-color: ${buttonHoverBg} !important;
+  color: ${onPrimary} !important;
+}
+a.corp-cta:link,
+a.corp-cta:visited {
+  color: ${onPrimary} !important;
+}
 .star-rating span:before,
 .corp-proof-count {
   color: ${primary} !important;
 }
 #ast-scroll-top {
   background-color: ${primary} !important;
+  color: ${onPrimary} !important;
+}
+.site-footer,
+.ast-footer-overlay,
+.site-below-footer-wrap,
+.site-primary-footer-wrap {
+  background-color: ${footerBg} !important;
+  border-top-color: ${footerBg} !important;
+}
+.site-footer,
+.site-footer p,
+.site-footer .widget,
+.footer-widget-area,
+.ast-small-footer {
+  color: ${onFooterMuted} !important;
+}
+.site-footer a,
+.site-below-footer-wrap a {
+  color: ${onFooter} !important;
+}
+.site-footer .widget-title,
+.footer-widget-area .widget-title {
+  color: ${onFooter} !important;
 }${buildAstraHeaderAlignCss()}`;
 }
 
@@ -659,17 +814,54 @@ async function applyAstraBrandTheme(
   const settings: Record<string, string> = {
     "theme-color": primary,
     "link-color": primary,
+    "link-h-color": darkenColor(primary, 0.12),
+    // Header'ın kendi background'ını Astra tarafında da boya ki CSS'e bağlı kalmasın.
     "header-color-site-title": onPrimary,
+    "header-color-site-title-hover": onPrimary,
     "header-color-h-menu-link": onPrimary,
     "header-color-h-menu-link-hover": onPrimary,
+    "header-color-h-menu-link-active": onPrimary,
     "button-bg-color": primary,
     "button-color": onPrimary,
-    "button-h-bg-color": primary,
+    "button-h-bg-color": darkenColor(primary, 0.12),
     "button-h-color": onPrimary,
   };
 
   for (const [key, value] of Object.entries(settings)) {
     await updateAstraSetting(projectId, key, value);
+  }
+
+  // Astra header background objesi (Header Builder). CSS ile birlikte
+  // çift güvence sağlar; beyaz header'ın geri dönmesini engeller.
+  await setAstraHeaderBackground(projectId, primary);
+}
+
+/**
+ * Astra Header Builder'daki primary header background rengini set eder.
+ * Responsive background objesi yapısını korur, sadece rengi değiştirir.
+ */
+async function setAstraHeaderBackground(
+  projectId: string,
+  primary: string,
+): Promise<void> {
+  const bgObject = JSON.stringify({
+    "background-color": primary,
+    "background-image": "",
+    "background-repeat": "repeat",
+    "background-position": "center center",
+    "background-size": "auto",
+    "background-attachment": "scroll",
+    "background-type": "",
+    "background-media": "",
+  });
+  const php = `$s=get_option("astra-settings",array());if(!is_array($s)){$s=array();}$bg=json_decode(${JSON.stringify(
+    bgObject,
+  )},true);$resp=array("desktop"=>$bg,"tablet"=>$bg,"mobile"=>$bg);foreach(array("hb-header-bg-obj-responsive","header-desktop-items-primary-bg-color-responsive") as $k){$s[$k]=$resp;}update_option("astra-settings",$s);`;
+
+  try {
+    await runPhp(projectId, php);
+  } catch {
+    // Header Builder yoksa CSS zaten devrede.
   }
 }
 
