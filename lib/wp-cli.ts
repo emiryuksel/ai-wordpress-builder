@@ -261,6 +261,7 @@ export async function applyAstraBlogChrome(
   primaryColor: string,
 ): Promise<void> {
   const primary = normalizeHexColor(primaryColor);
+  const onPrimary = contrastingTextColor(primary);
 
   await removeMarkedCustomCss(projectId, "ai-wp:theme");
 
@@ -269,9 +270,9 @@ export async function applyAstraBlogChrome(
     "link-color": primary,
     "heading-base-color": "#0f172a",
     "text-color": "#475569",
-    "header-color-site-title": "#0f172a",
-    "header-color-h-menu-link": "#334155",
-    "header-color-h-menu-link-hover": primary,
+    "header-color-site-title": onPrimary,
+    "header-color-h-menu-link": onPrimary,
+    "header-color-h-menu-link-hover": onPrimary,
     "footer-color": "#64748b",
     "footer-heading-color": "#0f172a",
   };
@@ -280,6 +281,7 @@ export async function applyAstraBlogChrome(
     await updateAstraSetting(projectId, key, value);
   }
 
+  await setAstraHeaderBackground(projectId, primary);
   await fixAstraHeaderMenuDuplication(projectId);
 
   await setMarkedCustomCss(
@@ -442,12 +444,22 @@ function buildAstraHeaderAlignCss(): string {
 }
 
 function buildAstraBlogChromeCss(primary: string): string {
+  const brand = normalizeHexColor(primary);
+  const onBrand = contrastingTextColor(brand);
+  const onBrandMuted = mutedOnColor(onBrand);
+  const hoverBg =
+    onBrand === "#ffffff" ? lightenColor(brand, 0.14) : darkenColor(brand, 0.1);
+  const footerBg = darkenColor(brand, 0.18);
+  const onFooter = contrastingTextColor(footerBg);
+  const onFooterMuted = mutedOnColor(onFooter);
   return `/* ai-wp:blog-chrome */
 #masthead,
 .ast-primary-header-bar,
 .main-header-bar,
 .site-header,
 .site-primary-header-wrap,
+.ast-above-header-wrap,
+.ast-below-header-wrap,
 #ast-desktop-header .main-header-bar,
 #masthead .main-header-bar {
   width: 100vw !important;
@@ -455,8 +467,9 @@ function buildAstraBlogChromeCss(primary: string): string {
   margin-left: calc(50% - 50vw) !important;
   margin-right: calc(50% - 50vw) !important;
   box-sizing: border-box !important;
-  background-color: #ffffff !important;
-  border-bottom: 1px solid #e2e8f0 !important;
+  background-color: ${brand} !important;
+  background-image: none !important;
+  border-bottom: 1px solid ${darkenColor(brand, 0.12)} !important;
   box-shadow: none !important;
 }
 #masthead {
@@ -472,8 +485,8 @@ function buildAstraBlogChromeCss(primary: string): string {
   margin-left: -50vw !important;
   top: 0 !important;
   bottom: 0 !important;
-  background-color: #ffffff !important;
-  border-bottom: 1px solid #e2e8f0 !important;
+  background-color: ${brand} !important;
+  border-bottom: 1px solid ${darkenColor(brand, 0.12)} !important;
 }
 #masthead > * {
   position: relative !important;
@@ -481,8 +494,10 @@ function buildAstraBlogChromeCss(primary: string): string {
 }
 .ast-primary-header-bar .ast-container,
 .ast-primary-header-bar .ast-builder-grid-row-container,
-.site-primary-header-wrap .ast-builder-grid-row-container {
+.site-primary-header-wrap .ast-builder-grid-row-container,
+.main-header-bar-wrap {
   background: transparent !important;
+  background-color: transparent !important;
   box-shadow: none !important;
 }
 .site-below-footer-wrap,
@@ -493,7 +508,7 @@ function buildAstraBlogChromeCss(primary: string): string {
   margin-right: calc(50% - 50vw) !important;
   box-sizing: border-box !important;
   position: relative !important;
-  background-color: #ffffff !important;
+  background-color: ${footerBg} !important;
 }
 .site-below-footer-wrap::before {
   content: "" !important;
@@ -505,7 +520,7 @@ function buildAstraBlogChromeCss(primary: string): string {
   margin-left: -50vw !important;
   top: 0 !important;
   bottom: 0 !important;
-  background-color: #ffffff !important;
+  background-color: ${footerBg} !important;
 }
 .site-below-footer-wrap > * {
   position: relative !important;
@@ -514,29 +529,43 @@ function buildAstraBlogChromeCss(primary: string): string {
 .site-below-footer-wrap .ast-builder-grid-row-container {
   background: transparent !important;
 }
+.site-below-footer-wrap,
+.site-below-footer-wrap .ast-footer-copyright,
+.site-primary-footer-wrap {
+  color: ${onFooterMuted} !important;
+}
+.site-below-footer-wrap a,
+.site-primary-footer-wrap a {
+  color: ${onFooter} !important;
+}
 .site-title a,
 .site-title a:hover,
 .site-header .site-title a,
 #masthead .site-title a,
 .ast-site-identity .site-title a,
 .ast-site-identity .site-title {
-  color: #0f172a !important;
+  color: ${onBrand} !important;
 }
 .site-description,
 .site-header .site-description,
 .ast-site-identity .site-description {
-  color: #64748b !important;
+  color: ${onBrandMuted} !important;
 }
 .main-navigation a,
 .main-header-menu a,
 .ast-main-header-bar-alignment a,
+.ast-builder-menu-1 .menu-item > .menu-link,
+.ast-builder-menu-1 .menu-link,
+.ast-builder-menu-1 .menu-item.current-menu-item > .menu-link,
 .ast-builder-menu .menu-item > a {
-  color: #334155 !important;
+  color: ${onBrand} !important;
 }
 .main-navigation a:hover,
 .main-header-menu a:hover,
+.ast-builder-menu-1 .menu-item:hover > .menu-link,
 .ast-builder-menu .menu-item > a:hover {
-  color: ${primary} !important;
+  color: ${onBrand} !important;
+  background-color: ${hoverBg} !important;
 }
 .ast-builder-menu-2,
 #ast-desktop-header .ast-builder-menu-2,
@@ -553,17 +582,20 @@ body.home .ast-single-entry-header,
 .site-footer,
 .ast-footer-overlay,
 .site-footer .footer-widget-area {
-  background-color: #f8fafc !important;
-  border-top: 1px solid #e2e8f0 !important;
+  background-color: ${footerBg} !important;
+  border-top: 1px solid ${footerBg} !important;
 }
 .site-footer .widget-title,
 .footer-widget-area .widget-title {
-  color: #0f172a !important;
+  color: ${onFooter} !important;
 }
 .site-footer,
 .site-footer a,
 .footer-widget-area {
-  color: #64748b !important;
+  color: ${onFooterMuted} !important;
+}
+.site-footer a {
+  color: ${onFooter} !important;
 }
 .ast-article-post .post-thumb img,
 .ast-blog-featured-section img,
