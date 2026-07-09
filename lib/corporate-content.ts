@@ -733,6 +733,11 @@ export async function updateCorporateHeroBrandName(
   projectId: string,
   brandName: string,
 ): Promise<void> {
+  const trimmedBrand = brandName.trim();
+  if (!trimmedBrand) {
+    return;
+  }
+
   const pageId = await getHomePageId(projectId);
   if (!pageId) {
     return;
@@ -749,11 +754,38 @@ export async function updateCorporateHeroBrandName(
     return;
   }
 
+  const plan = await loadPlan(projectId);
+  if (!plan) {
+    // Plan yoksa eski regex tabanlı yönteme düş (nadir durum).
+    await updateHeroBrandViaRegex(projectId, html, trimmedBrand);
+    return;
+  }
+
+  const currentHeroTitle =
+    extractHeroTitleFromHtml(html) || plan.hero.title || "";
+  const year = new Date().getFullYear();
+
+  plan.hero.title = buildHeroHeadingFromBrand(trimmedBrand, currentHeroTitle);
+  plan.footer.copyright = `© ${year} ${trimmedBrand}. Tüm hakları saklıdır.`;
+
+  // Planı komple yeniden render et: hem hero başlığı hem footer telif satırı
+  // (ve marka adına bağlı diğer alanlar) tek seferde güncellenir. Görseller
+  // korunur. Kırılgan regex yerine güvenilir tam-render yaklaşımı.
+  const primaryColor = extractCorporatePrimaryColor(html);
+  await rebuildCorporateHomePreservingImages(projectId, plan, primaryColor);
+}
+
+/** Plan bulunamadığında hero/footer'ı doğrudan HTML üzerinden günceller. */
+async function updateHeroBrandViaRegex(
+  projectId: string,
+  html: string,
+  brandName: string,
+): Promise<void> {
   const currentHeroTitle = extractHeroTitleFromHtml(html);
   const nextHeroTitle = buildHeroHeadingFromBrand(brandName, currentHeroTitle);
   const escapedHeroTitle = escapeHtml(nextHeroTitle);
   const year = new Date().getFullYear();
-  const copyright = `© ${year} ${brandName.trim()}. Tüm hakları saklıdır.`;
+  const copyright = `© ${year} ${brandName}. Tüm hakları saklıdır.`;
 
   let updated = html.replace(
     /(<section id="corp-hero"[^>]*>[\s\S]*?<h1>)([^<]*)(<\/h1>)/i,
@@ -767,13 +799,6 @@ export async function updateCorporateHeroBrandName(
 
   if (updated !== html) {
     await updateHomeContent(projectId, updated);
-  }
-
-  const plan = await loadPlan(projectId);
-  if (plan) {
-    plan.hero.title = nextHeroTitle;
-    plan.footer.copyright = copyright;
-    await savePlan(projectId, plan);
   }
 }
 

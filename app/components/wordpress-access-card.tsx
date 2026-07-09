@@ -67,11 +67,11 @@ export default function WordPressAccessCard({ access }: WordPressAccessCardProps
             href={access.adminUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-1 inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 transition hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+            className="mt-2 inline-flex items-center gap-2 rounded-xl bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
           >
-            {access.adminUrl}
+            Siteyi görüntüle
             <svg
-              className="h-3.5 w-3.5 shrink-0 opacity-70"
+              className="h-3.5 w-3.5 shrink-0 opacity-80"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"

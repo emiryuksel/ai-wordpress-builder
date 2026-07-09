@@ -515,6 +515,8 @@ export default function BuilderWorkspace({ projectId }: BuilderWorkspaceProps) {
         throw new Error(data.error ?? "Marka ayarları uygulanamadı.");
       }
 
+      const nextSiteUrl = data.siteUrl ?? project?.siteUrl ?? "";
+
       setProject((current) =>
         current
           ? {
@@ -524,9 +526,36 @@ export default function BuilderWorkspace({ projectId }: BuilderWorkspaceProps) {
               siteTitle: brandName.trim() || current.siteTitle,
               suggestedPrimaryColor: colorOption.hex,
               brandOnboardingComplete: true,
+              wordpressAccess: current.wordpressAccess
+                ? {
+                    ...current.wordpressAccess,
+                    siteUrl: nextSiteUrl.replace(/\/$/, ""),
+                    adminUrl: `${nextSiteUrl.replace(/\/$/, "")}/wp-admin`,
+                  }
+                : current.wordpressAccess,
             }
           : current,
       );
+
+      // Marka adı slug'ı değiştirdiyse, halihazırda gösterilen "Siteniz hazır"
+      // kartındaki eski URL'i yeni adresle güncelle.
+      if (data.slug && nextSiteUrl) {
+        const normalizedSiteUrl = nextSiteUrl.replace(/\/$/, "");
+        setMessages((current) =>
+          current.map((message) =>
+            message.kind === "wordpress-access" && message.wordpressAccess
+              ? {
+                  ...message,
+                  wordpressAccess: {
+                    ...message.wordpressAccess,
+                    siteUrl: normalizedSiteUrl,
+                    adminUrl: `${normalizedSiteUrl}/wp-admin`,
+                  },
+                }
+              : message,
+          ),
+        );
+      }
 
       setMessages((current) => [
         ...current,

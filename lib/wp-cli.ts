@@ -600,13 +600,40 @@ footer.site-footer,
   border-top-color: ${footerBg} !important;
 }
 /* Footer'ın kenarlarda (yatay scrollbar payı, container margin'i vb.) beyaz
-   taşması olmasın diye rengi yatayda sonsuza yay. box-shadow layout'u
-   değiştirmez, sadece boyar; grid hizalaması bozulmaz. */
+   taşması olmasın diye header ile aynı güvenilir full-bleed ::before katmanını
+   kullan. box-shadow/clip-path bazı render durumlarında kenarları kesiyordu;
+   viewport genişliğinde mutlak konumlu bir arka plan bunu garanti eder. */
+#colophon,
 .site-footer,
-footer.site-footer {
+footer.site-footer,
+.site-below-footer-wrap,
+.site-primary-footer-wrap {
   position: relative !important;
-  box-shadow: 0 0 0 100vmax ${footerBg} !important;
-  clip-path: inset(0 -100vmax) !important;
+  overflow: visible !important;
+  border-top: 0 !important;
+  margin-top: 0 !important;
+}
+#colophon::before,
+.site-footer::before,
+footer.site-footer::before {
+  content: "" !important;
+  display: block !important;
+  position: absolute !important;
+  z-index: 0 !important;
+  left: 50% !important;
+  width: 100vw !important;
+  margin-left: -50vw !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  background-color: ${footerBg} !important;
+  pointer-events: none !important;
+}
+/* İçerik ::before katmanının üstünde kalsın. */
+.site-footer > *,
+footer.site-footer > *,
+#colophon > * {
+  position: relative !important;
+  z-index: 1 !important;
 }
 /* Footer içindeki iç grid/container katmanlarını şeffaflaştır ki alt/üst
    wrap'lerin footerBg rengi görünür kalsın. */
