@@ -434,9 +434,6 @@ function buildBrandThemeCss(color: string): string {
   const primary = normalizeHexColor(color);
   const onPrimary = contrastingTextColor(primary);
   const onPrimaryMuted = mutedOnColor(onPrimary);
-  // Hover tonu: koyu zeminde açılır, açık zeminde koyulaşır (görünür kalsın).
-  const hoverBg =
-    onPrimary === "#ffffff" ? lightenColor(primary, 0.14) : darkenColor(primary, 0.1);
   const buttonHoverBg = darkenColor(primary, 0.12);
   const footerBg = darkenColor(primary, 0.18);
   const onFooter = contrastingTextColor(footerBg);
@@ -526,9 +523,13 @@ header.site-header,
 .main-header-menu a:hover,
 .ast-builder-menu .menu-item > a:hover,
 #masthead a:hover,
-.ast-builder-menu-1 .menu-item.current-menu-item > .menu-link {
+.ast-builder-menu-1 .menu-item.current-menu-item > .menu-link,
+.ast-builder-menu-1 .menu-item.current-menu-ancestor > .menu-link,
+.main-header-menu .menu-item.current-menu-item > a,
+#masthead .menu-item.current-menu-item > a {
   color: ${onPrimary} !important;
-  background-color: ${hoverBg} !important;
+  background-color: transparent !important;
+  background: transparent !important;
 }
 .button,
 button,
@@ -738,21 +739,25 @@ async function applyAstraBrandTheme(
 }
 
 /**
- * Astra "below footer" copyright bar'ındaki metni günceller. Astra varsayılanı
- * "Copyright © [current_year] [site_title] | Powered by Astra WordPress Theme"
- * şeklindedir; buradaki "Powered by ..." kısmını "Powered by withSolver" yapar.
- * Astra placeholder'ları ([current_year], [site_title]) korunur.
+ * Astra footer copyright bar'ındaki metni günceller. Modern Astra (Footer
+ * Builder) bu metni astra-settings['footer-copyright-editor'] altında tutar;
+ * boşsa "Powered by [theme_author]" (Astra WordPress Theme) varsayılanını
+ * gösterir. Placeholder'lar ([current_year]/[site_title]) Astra tarafından
+ * render edildiği için korunur, yalnızca "Powered by ..." markamıza çevrilir.
  */
 async function setAstraFooterCopyright(projectId: string): Promise<void> {
-  const defaultCopyright =
+  const brandedCopyright =
     "Copyright © [current_year] [site_title] | Powered by withSolver";
   const php = `
-$default = ${JSON.stringify(defaultCopyright)};
-$keys = array("footer-sml-section-1", "footer-sml-section-2");
+$branded = ${JSON.stringify(brandedCopyright)};
 
-$replace = function ($val) {
-  if (!is_string($val) || $val === "") {
+$strip = function ($val) {
+  if (!is_string($val)) {
     return null;
+  }
+  // [theme_author] veya "Powered by ..." kalıbını markaya çevir.
+  if (stripos($val, "[theme_author]") !== false) {
+    return preg_replace("/Powered by\\\\s*\\\\[theme_author\\\\]/i", "Powered by withSolver", $val);
   }
   if (stripos($val, "powered by") !== false) {
     return preg_replace("/Powered by.*/is", "Powered by withSolver", $val);
@@ -760,38 +765,35 @@ $replace = function ($val) {
   return null;
 };
 
-// 1) theme_mod tarafı (Astra çoğu sürümde burayı okur)
-$hasCopyright = false;
-foreach ($keys as $k) {
-  $val = get_theme_mod($k, "");
-  $new = $replace($val);
-  if ($new !== null) {
-    set_theme_mod($k, $new);
-    $hasCopyright = true;
-  } elseif (is_string($val) && $val !== "") {
-    $hasCopyright = true;
-  }
-}
-if (!$hasCopyright) {
-  set_theme_mod("footer-sml-section-1", $default);
+$s = get_option("astra-settings", array());
+if (!is_array($s)) { $s = array(); }
+
+// Modern Astra (Footer Builder) anahtarı.
+$editor = isset($s["footer-copyright-editor"]) ? $s["footer-copyright-editor"] : "";
+$new = $strip($editor);
+if ($new !== null) {
+  $s["footer-copyright-editor"] = $new;
+} elseif (!is_string($editor) || trim(wp_strip_all_tags($editor)) === "") {
+  // Boş/tanımsız: Astra varsayılanı (Powered by Astra) gösterileceği için
+  // markalı metni yaz.
+  $s["footer-copyright-editor"] = $branded;
 }
 
-// 2) astra-settings option tarafı (bazı sürümler burada tutar)
-$s = get_option("astra-settings", array());
-if (is_array($s)) {
-  $touched = false;
-  foreach ($keys as $k) {
-    if (isset($s[$k])) {
-      $new = $replace($s[$k]);
-      if ($new !== null) {
-        $s[$k] = $new;
-        $touched = true;
-      }
-    }
+// Eski klasik footer anahtarları (varsa) da güncellensin.
+foreach (array("footer-sml-section-1", "footer-sml-section-2") as $k) {
+  if (isset($s[$k])) {
+    $n = $strip($s[$k]);
+    if ($n !== null) { $s[$k] = $n; }
   }
-  if ($touched) {
-    update_option("astra-settings", $s);
-  }
+}
+
+update_option("astra-settings", $s);
+
+// theme_mod tarafı da bazı sürümlerde okunur.
+foreach (array("footer-sml-section-1", "footer-sml-section-2") as $k) {
+  $val = get_theme_mod($k, "");
+  $n = $strip($val);
+  if ($n !== null) { set_theme_mod($k, $n); }
 }
 `;
 
