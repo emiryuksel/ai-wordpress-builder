@@ -576,16 +576,20 @@ a.corp-cta:visited {
 .ast-small-footer,
 footer.site-footer,
 .footer-adv,
-.footer-adv-overlay {
+.footer-adv-overlay,
+.site-below-footer-wrap[data-section="section-below-footer-builder"],
+.site-primary-footer-wrap[data-section="section-primary-footer-builder"],
+[data-section="section-footer-builder"],
+.site-footer-below-section-1,
+.site-footer-below-section-2,
+.site-footer-primary-section-1,
+.site-footer-primary-section-2 {
   ${fullBleed}
   position: relative !important;
   background-color: ${footerBg} !important;
   border-top-color: ${footerBg} !important;
 }
-.site-footer::before,
-.site-below-footer-wrap::before,
-.site-primary-footer-wrap::before,
-.ast-small-footer::before {
+.site-footer::before {
   content: "" !important;
   display: block !important;
   position: absolute !important;
@@ -597,14 +601,18 @@ footer.site-footer,
   bottom: 0 !important;
   background-color: ${footerBg} !important;
 }
-.site-footer > *,
-.site-below-footer-wrap > *,
-.site-primary-footer-wrap > *,
-.ast-small-footer > * {
+.site-footer > * {
   position: relative !important;
   z-index: 1 !important;
 }
+/* Footer içindeki tüm iç katman/grid/row background'larını şeffaflaştır ki
+   copyright bar gibi alt satırlar beyaz kalmayıp footerBg'yi göstersin.
+   (Ana wrap'ler kendi footerBg background'larını korur.) */
 .site-footer .ast-container,
+.site-footer .ast-builder-grid-row-container,
+.site-footer .ast-builder-grid-row-container-inner,
+.site-footer .ast-builder-grid-row,
+.site-footer .ast-builder-layout-element,
 .site-below-footer-wrap .ast-container,
 .site-primary-footer-wrap .ast-container,
 .ast-small-footer .ast-container,
@@ -625,7 +633,8 @@ footer.site-footer,
 .site-footer a,
 .site-below-footer-wrap a,
 .ast-small-footer a,
-.ast-footer-copyright a {
+.ast-footer-copyright a,
+.ast-footer-copyright a:hover {
   color: ${onFooter} !important;
 }
 .site-footer .widget-title,
@@ -734,8 +743,43 @@ async function applyAstraBrandTheme(
   // çift güvence sağlar; beyaz header'ın geri dönmesini engeller.
   await setAstraHeaderBackground(projectId, primary);
 
+  // Footer (widget + copyright bar) background'ını Astra tarafında da footerBg
+  // yap. Aksi halde below-footer bar Astra'nın beyaz global renginde kalıyor.
+  await setAstraFooterBackground(projectId, darkenColor(primary, 0.18));
+
   // Footer copyright bar'ındaki "Powered by Astra..." metnini markamıza çevir.
   await setAstraFooterCopyright(projectId);
+}
+
+/**
+ * Astra Footer Builder'daki primary footer ve below-footer (copyright bar)
+ * background renklerini set eder. Astra bu barları varsayılan olarak beyaz
+ * global renkle boyadığı için CSS !important savaşı yerine ayarı doğrudan
+ * güncellemek daha güvenilir.
+ */
+async function setAstraFooterBackground(
+  projectId: string,
+  footerColor: string,
+): Promise<void> {
+  const bgObject = JSON.stringify({
+    "background-color": footerColor,
+    "background-image": "",
+    "background-repeat": "repeat",
+    "background-position": "center center",
+    "background-size": "auto",
+    "background-attachment": "scroll",
+    "background-type": "",
+    "background-media": "",
+  });
+  const php = `$s=get_option("astra-settings",array());if(!is_array($s)){$s=array();}$bg=json_decode(${JSON.stringify(
+    bgObject,
+  )},true);$resp=array("desktop"=>$bg,"tablet"=>$bg,"mobile"=>$bg);foreach(array("footer-bg-obj-responsive","below-footer-bg-obj-responsive","hb-footer-bg-obj-responsive","footer-desktop-items-below-bg-color-responsive","footer-desktop-items-primary-bg-color-responsive") as $k){$s[$k]=$resp;}update_option("astra-settings",$s);`;
+
+  try {
+    await runPhp(projectId, php);
+  } catch {
+    // Footer Builder yoksa CSS zaten devrede.
+  }
 }
 
 /**
