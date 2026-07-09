@@ -438,6 +438,18 @@ function buildBrandThemeCss(color: string): string {
   const footerBg = darkenColor(primary, 0.18);
   const onFooter = contrastingTextColor(footerBg);
   const onFooterMuted = mutedOnColor(onFooter);
+  // İçerik (beyaz zemin) üzerindeki vurgu rengi: primary beyaz zeminde yeterli
+  // kontrasta sahip değilse (ör. beyaz/çok açık tema) koyu bir tonla değiştirilir
+  // ki metin görünmez/soluk olmasın (WCAG AA ~4.5 hedefi).
+  let accentOnLight = primary;
+  let darkenStep = 0;
+  while (contrastRatio(accentOnLight, "#ffffff") < 4.5 && darkenStep < 9) {
+    darkenStep += 1;
+    accentOnLight = darkenColor(primary, 0.1 * darkenStep);
+  }
+  if (contrastRatio(accentOnLight, "#ffffff") < 4.5) {
+    accentOnLight = "#0f172a";
+  }
   const fullBleed = `
   width: 100vw !important;
   max-width: 100vw !important;
@@ -563,11 +575,11 @@ a.corp-cta:visited {
 }
 .star-rating span:before,
 .corp-proof-count {
-  color: ${primary} !important;
+  color: ${accentOnLight} !important;
 }
 #ast-scroll-top {
-  background-color: ${primary} !important;
-  color: ${onPrimary} !important;
+  background-color: ${accentOnLight} !important;
+  color: ${contrastingTextColor(accentOnLight)} !important;
 }
 .site-footer,
 .ast-footer-overlay,
@@ -584,35 +596,15 @@ footer.site-footer,
 .site-footer-below-section-2,
 .site-footer-primary-section-1,
 .site-footer-primary-section-2 {
-  ${fullBleed}
-  position: relative !important;
   background-color: ${footerBg} !important;
   border-top-color: ${footerBg} !important;
 }
-.site-footer::before {
-  content: "" !important;
-  display: block !important;
-  position: absolute !important;
-  z-index: 0 !important;
-  left: 50% !important;
-  width: 100vw !important;
-  margin-left: -50vw !important;
-  top: 0 !important;
-  bottom: 0 !important;
-  background-color: ${footerBg} !important;
-}
-.site-footer > * {
-  position: relative !important;
-  z-index: 1 !important;
-}
-/* Footer içindeki tüm iç katman/grid/row background'larını şeffaflaştır ki
-   copyright bar gibi alt satırlar beyaz kalmayıp footerBg'yi göstersin.
-   (Ana wrap'ler kendi footerBg background'larını korur.) */
+/* Footer içindeki iç grid/container katmanlarını şeffaflaştır ki alt/üst
+   wrap'lerin footerBg rengi görünür kalsın. */
 .site-footer .ast-container,
-.site-footer .ast-builder-grid-row-container,
 .site-footer .ast-builder-grid-row-container-inner,
 .site-footer .ast-builder-grid-row,
-.site-footer .ast-builder-layout-element,
+.site-footer .ast-builder-footer-grid-columns,
 .site-below-footer-wrap .ast-container,
 .site-primary-footer-wrap .ast-container,
 .ast-small-footer .ast-container,
