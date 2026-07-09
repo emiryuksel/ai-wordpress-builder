@@ -56,6 +56,7 @@ interface BuilderWorkspaceProps {
 }
 
 const BRAND_COLOR_OPTIONS = [
+  { id: "white", label: "Beyaz", hex: "#ffffff" },
   { id: "navy", label: "Lacivert", hex: "#1e40af" },
   { id: "slate", label: "Koyu Gri", hex: "#1e293b" },
   { id: "emerald", label: "Zümrüt", hex: "#059669" },
@@ -77,14 +78,6 @@ const BODY_FONT_OPTIONS = [
   { id: "roboto", label: "Roboto", value: "Roboto" },
   { id: "lato", label: "Lato", value: "Lato" },
 ] as const;
-
-function findColorPresetId(hex: string): (typeof BRAND_COLOR_OPTIONS)[number]["id"] {
-  const normalized = hex.trim().toLowerCase();
-  const match = BRAND_COLOR_OPTIONS.find(
-    (option) => option.hex.toLowerCase() === normalized,
-  );
-  return match?.id ?? BRAND_COLOR_OPTIONS[0].id;
-}
 
 function createMessage(role: ChatMessage["role"], content: string): ChatMessage {
   return {
@@ -182,7 +175,7 @@ export default function BuilderWorkspace({ projectId }: BuilderWorkspaceProps) {
   const [brandPanelOpen, setBrandPanelOpen] = useState(false);
   const [brandName, setBrandName] = useState("");
   const [brandColorId, setBrandColorId] =
-    useState<(typeof BRAND_COLOR_OPTIONS)[number]["id"]>("navy");
+    useState<(typeof BRAND_COLOR_OPTIONS)[number]["id"]>("white");
   const [brandHeadingFontId, setBrandHeadingFontId] =
     useState<(typeof HEADING_FONT_OPTIONS)[number]["id"]>("poppins");
   const [brandBodyFontId, setBrandBodyFontId] =
@@ -205,7 +198,9 @@ export default function BuilderWorkspace({ projectId }: BuilderWorkspaceProps) {
 
     brandOnboardingShownRef.current = true;
     setBrandName(project.siteTitle);
-    setBrandColorId(findColorPresetId(project.suggestedPrimaryColor || "#1e40af"));
+    // Marka kartında varsayılan olarak Beyaz seçili gelir (ilk sıradaki seçenek).
+    // AI'nın önerdiği renge otomatik geçmiyoruz; kullanıcı isterse seçer.
+    setBrandColorId("white");
 
     const openBrandPanel = shouldOpenBrandPanel(project);
     if (openBrandPanel) {

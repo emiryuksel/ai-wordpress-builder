@@ -121,15 +121,9 @@ async function enrichProjectInBackground(
 
   try {
     if (isBlogProject(project)) {
-      await applyAstraBlogChrome(
-        projectId,
-        project.suggestedPrimaryColor || "#2563eb",
-      );
+      await applyAstraBlogChrome(projectId, "#ffffff");
     } else if (isCorporateProject(project)) {
-      await applyAstraBlogChrome(
-        projectId,
-        project.suggestedPrimaryColor || "#1e40af",
-      );
+      await applyAstraBlogChrome(projectId, "#ffffff");
     } else if (isEcommerceProject(project)) {
       if (project.suggestedPrimaryColor) {
         try {
@@ -200,10 +194,7 @@ export async function completeProjectSetup(
     if (isBlogProject(project)) {
       await setupBlogContent(projectId, project.prompt, project.siteTitle);
       try {
-        await applyAstraBlogChrome(
-          projectId,
-          project.suggestedPrimaryColor || "#2563eb",
-        );
+        await applyAstraBlogChrome(projectId, "#ffffff");
         await enrichBlogAiImages(projectId, project.prompt);
         await ensureMissingBlogAiImages(projectId, project.prompt);
       } catch (chromeError) {
@@ -217,10 +208,7 @@ export async function completeProjectSetup(
         project.suggestedPrimaryColor || "#1e40af",
       );
       try {
-        await applyAstraBlogChrome(
-          projectId,
-          project.suggestedPrimaryColor || "#1e40af",
-        );
+        await applyAstraBlogChrome(projectId, "#ffffff");
       } catch (corpError) {
         console.warn(`[provisioning] Kurumsal kurulum (${projectId}):`, corpError);
       }

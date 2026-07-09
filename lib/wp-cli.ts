@@ -571,19 +571,60 @@ a.corp-cta:visited {
 .site-footer,
 .ast-footer-overlay,
 .site-below-footer-wrap,
-.site-primary-footer-wrap {
+.site-primary-footer-wrap,
+.ast-small-footer,
+footer.site-footer,
+.footer-adv,
+.footer-adv-overlay {
+  ${fullBleed}
+  position: relative !important;
   background-color: ${footerBg} !important;
   border-top-color: ${footerBg} !important;
+}
+.site-footer::before,
+.site-below-footer-wrap::before,
+.site-primary-footer-wrap::before,
+.ast-small-footer::before {
+  content: "" !important;
+  display: block !important;
+  position: absolute !important;
+  z-index: 0 !important;
+  left: 50% !important;
+  width: 100vw !important;
+  margin-left: -50vw !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  background-color: ${footerBg} !important;
+}
+.site-footer > *,
+.site-below-footer-wrap > *,
+.site-primary-footer-wrap > *,
+.ast-small-footer > * {
+  position: relative !important;
+  z-index: 1 !important;
+}
+.site-footer .ast-container,
+.site-below-footer-wrap .ast-container,
+.site-primary-footer-wrap .ast-container,
+.ast-small-footer .ast-container,
+.footer-adv .ast-container {
+  background: transparent !important;
+  background-color: transparent !important;
 }
 .site-footer,
 .site-footer p,
 .site-footer .widget,
 .footer-widget-area,
-.ast-small-footer {
+.ast-small-footer,
+.site-below-footer-wrap,
+.ast-footer-copyright,
+.ast-footer-copyright p {
   color: ${onFooterMuted} !important;
 }
 .site-footer a,
-.site-below-footer-wrap a {
+.site-below-footer-wrap a,
+.ast-small-footer a,
+.ast-footer-copyright a {
   color: ${onFooter} !important;
 }
 .site-footer .widget-title,

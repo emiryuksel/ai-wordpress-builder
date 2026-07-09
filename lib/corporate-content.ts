@@ -1363,7 +1363,7 @@ export async function repairCorporateSite(
   await installCorporateWpGuard(projectId);
   await upgradeCorporateHtmlBlock(projectId);
   await upgradeCorporateHeroLayout(projectId);
-  await applyAstraBlogChrome(projectId, primaryColor || "#1e40af");
+  await applyAstraBlogChrome(projectId, primaryColor || "#ffffff");
   if (siteTitle.trim()) {
     await updateCorporateHeroBrandName(projectId, siteTitle.trim());
   }
