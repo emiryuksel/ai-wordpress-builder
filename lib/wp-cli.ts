@@ -732,6 +732,74 @@ async function applyAstraBrandTheme(
   // Astra header background objesi (Header Builder). CSS ile birlikte
   // çift güvence sağlar; beyaz header'ın geri dönmesini engeller.
   await setAstraHeaderBackground(projectId, primary);
+
+  // Footer copyright bar'ındaki "Powered by Astra..." metnini markamıza çevir.
+  await setAstraFooterCopyright(projectId);
+}
+
+/**
+ * Astra "below footer" copyright bar'ındaki metni günceller. Astra varsayılanı
+ * "Copyright © [current_year] [site_title] | Powered by Astra WordPress Theme"
+ * şeklindedir; buradaki "Powered by ..." kısmını "Powered by withSolver" yapar.
+ * Astra placeholder'ları ([current_year], [site_title]) korunur.
+ */
+async function setAstraFooterCopyright(projectId: string): Promise<void> {
+  const defaultCopyright =
+    "Copyright © [current_year] [site_title] | Powered by withSolver";
+  const php = `
+$default = ${JSON.stringify(defaultCopyright)};
+$keys = array("footer-sml-section-1", "footer-sml-section-2");
+
+$replace = function ($val) {
+  if (!is_string($val) || $val === "") {
+    return null;
+  }
+  if (stripos($val, "powered by") !== false) {
+    return preg_replace("/Powered by.*/is", "Powered by withSolver", $val);
+  }
+  return null;
+};
+
+// 1) theme_mod tarafı (Astra çoğu sürümde burayı okur)
+$hasCopyright = false;
+foreach ($keys as $k) {
+  $val = get_theme_mod($k, "");
+  $new = $replace($val);
+  if ($new !== null) {
+    set_theme_mod($k, $new);
+    $hasCopyright = true;
+  } elseif (is_string($val) && $val !== "") {
+    $hasCopyright = true;
+  }
+}
+if (!$hasCopyright) {
+  set_theme_mod("footer-sml-section-1", $default);
+}
+
+// 2) astra-settings option tarafı (bazı sürümler burada tutar)
+$s = get_option("astra-settings", array());
+if (is_array($s)) {
+  $touched = false;
+  foreach ($keys as $k) {
+    if (isset($s[$k])) {
+      $new = $replace($s[$k]);
+      if ($new !== null) {
+        $s[$k] = $new;
+        $touched = true;
+      }
+    }
+  }
+  if ($touched) {
+    update_option("astra-settings", $s);
+  }
+}
+`;
+
+  try {
+    await runPhp(projectId, php);
+  } catch {
+    // Footer bar yoksa/erişilemezse sessizce geç.
+  }
 }
 
 /**
