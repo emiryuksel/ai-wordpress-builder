@@ -599,6 +599,15 @@ footer.site-footer,
   background-color: ${footerBg} !important;
   border-top-color: ${footerBg} !important;
 }
+/* Footer'ın kenarlarda (yatay scrollbar payı, container margin'i vb.) beyaz
+   taşması olmasın diye rengi yatayda sonsuza yay. box-shadow layout'u
+   değiştirmez, sadece boyar; grid hizalaması bozulmaz. */
+.site-footer,
+footer.site-footer {
+  position: relative !important;
+  box-shadow: 0 0 0 100vmax ${footerBg} !important;
+  clip-path: inset(0 -100vmax) !important;
+}
 /* Footer içindeki iç grid/container katmanlarını şeffaflaştır ki alt/üst
    wrap'lerin footerBg rengi görünür kalsın. */
 .site-footer .ast-container,
