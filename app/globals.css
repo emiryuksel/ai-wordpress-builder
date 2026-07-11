@@ -1,5 +1,16 @@
 @import "tailwindcss";
 
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 5rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
 :root {
   /* Apple-like aydınlık canvas */
   --background: #fbfbfd;
@@ -98,5 +109,41 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .app-canvas::before {
     animation: none;
+  }
+}
+
+/* Diller arası yumuşak geçiş — sayfa mount olduğunda fade + hafif yükselme */
+@keyframes locale-fade-in {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.locale-transition {
+  animation: locale-fade-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Dil değişiminde tıklama anında fade-out */
+.locale-transition[data-leaving="true"] {
+  animation: none;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition:
+    opacity 0.28s ease,
+    transform 0.28s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .locale-transition,
+  .locale-transition[data-leaving="true"] {
+    animation: none;
+    transition: none;
+    opacity: 1;
+    transform: none;
   }
 }

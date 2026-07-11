@@ -3,6 +3,7 @@ export const RESERVED_SLUGS = new Set([
   "admin",
   "api",
   "builder",
+  "en",
   "site-preview",
   "wp-content",
   "wp-includes",

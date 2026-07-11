@@ -3,11 +3,11 @@
 import { useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 
-import AuthModal, { type AuthContext } from "@/app/components/auth-modal";
-import ProjectsList from "@/app/components/projects-list";
-import SiteHeader from "@/app/components/site-header";
-import LandingSections from "@/app/components/landing-sections";
-import SiteFooter from "@/app/components/site-footer";
+import AuthModal, { type AuthContext } from "@/app/en/components/auth-modal";
+import ProjectsList from "@/app/en/components/projects-list";
+import SiteHeader from "@/app/en/components/site-header";
+import LandingSections from "@/app/en/components/landing-sections";
+import SiteFooter from "@/app/en/components/site-footer";
 
 type ProvisionResponse = {
   projectId: string;
@@ -37,29 +37,29 @@ type ProjectsResponse = {
 };
 
 const EXAMPLE_PROMPTS = [
-  "Bir inşaat firması web sitesi",
-  "Hukuk bürosu web sitesi",
-  "Yazılım şirketi için modern web sitesi",
+  "A construction company website",
+  "A law firm website",
+  "A modern website for a software company",
 ];
 
 const TYPEWRITER_HINTS = [
-  "Bir mimarlık firması için profesyonel web sitesi istiyorum...",
-  "Milano'da bir fine dining restoranı için web sitesi",
-  "El yapımı takı satan bir online mağaza",
-  "Yoga stüdyosu için randevu alınabilen bir site",
-  "Kişisel blog ve portfolyo sitesi",
-  "Bir kafe için menü ve iletişim sayfası olan site",
+  "I want a professional website for an architecture firm...",
+  "A website for a fine dining restaurant in Milan",
+  "An online store selling handmade jewelry",
+  "A yoga studio site with online booking",
+  "A personal blog and portfolio site",
+  "A cafe site with a menu and contact page",
 ];
 
 const PROVISION_TIMEOUT_MS = 2 * 60 * 1000;
 
-const SOLVER_CMS_URL = "https://withsolver.com/tr";
+const SOLVER_CMS_URL = "https://withsolver.com";
 
 type BuilderEngine = "wordpress" | "solver";
 
 /**
- * Klavyeden yazılıyormuş gibi hint'ler arasında dönen typewriter efekti.
- * `active` false olduğunda (kullanıcı yazmaya başlayınca) durur ve boş döner.
+ * Typewriter effect that cycles through hints as if typed on a keyboard.
+ * Stops and returns empty when `active` is false (user started typing).
  */
 function useTypewriterHint(phrases: string[], active: boolean): string {
   const [text, setText] = useState("");
@@ -83,7 +83,7 @@ function useTypewriterHint(phrases: string[], active: boolean): string {
         setText(current.slice(0, charIndex));
         if (charIndex === current.length) {
           deleting = true;
-          timer = setTimeout(tick, 1800); // tam yazıldıktan sonra bekle
+          timer = setTimeout(tick, 1800);
           return;
         }
         timer = setTimeout(tick, 45 + Math.random() * 55);
@@ -93,7 +93,7 @@ function useTypewriterHint(phrases: string[], active: boolean): string {
         if (charIndex === 0) {
           deleting = false;
           phraseIndex = (phraseIndex + 1) % phrases.length;
-          timer = setTimeout(tick, 400); // sonraki cümleden önce kısa duraklama
+          timer = setTimeout(tick, 400);
           return;
         }
         timer = setTimeout(tick, 25);
@@ -197,17 +197,17 @@ export default function HomePage() {
       }
 
       if (!response.ok) {
-        throw new Error(data.error ?? "Kurulum başlatılamadı.");
+        throw new Error(data.error ?? "Could not start the setup.");
       }
 
       await refreshAuth();
-      router.push(`/builder/${data.projectId}`);
+      router.push(`/en/builder/${data.projectId}`);
     } catch (submitError) {
       setLoading(false);
 
       if (submitError instanceof Error && submitError.name === "AbortError") {
         setError(
-          "İstek zaman aşımına uğradı. Gemini veya Docker yanıt vermedi — tekrar deneyin.",
+          "The request timed out. Gemini or Docker did not respond — please try again.",
         );
         return;
       }
@@ -215,7 +215,7 @@ export default function HomePage() {
       setError(
         submitError instanceof Error
           ? submitError.message
-          : "Beklenmeyen bir hata oluştu.",
+          : "An unexpected error occurred.",
       );
     } finally {
       window.clearTimeout(timeout);
@@ -230,7 +230,6 @@ export default function HomePage() {
       return;
     }
 
-    // Solver CMS seçiliyse kullanıcıyı withsolver.com'a yönlendir.
     if (engine === "solver") {
       const target = `${SOLVER_CMS_URL}?prompt=${encodeURIComponent(trimmedPrompt)}`;
       window.location.href = target;
@@ -246,7 +245,7 @@ export default function HomePage() {
 
     if (!authContext.canCreateProject) {
       setError(
-        `Site limitine ulaştınız (${authContext.projectLimit}). Ücretsiz planda en fazla 2 site oluşturabilirsiniz.`,
+        `You've reached your site limit (${authContext.projectLimit}). You can create up to 2 sites on the free plan.`,
       );
       return;
     }
@@ -268,7 +267,7 @@ export default function HomePage() {
 
     if (!context.canCreateProject) {
       setError(
-        `Site limitine ulaştınız (${context.projectLimit}). Ücretsiz planda en fazla 2 site oluşturabilirsiniz.`,
+        `You've reached your site limit (${context.projectLimit}). You can create up to 2 sites on the free plan.`,
       );
       return;
     }
@@ -285,10 +284,10 @@ export default function HomePage() {
 
   const isSolver = engine === "solver";
   const submitLabel = isSolver
-    ? "Hemen başla"
+    ? "Get started"
     : loading
-      ? "Builder açılıyor..."
-      : "Siteyi Oluştur";
+      ? "Opening builder..."
+      : "Create site";
 
   const hintActive = mounted && !loading && prompt.length === 0;
   const typedHint = useTypewriterHint(TYPEWRITER_HINTS, hintActive);
@@ -311,28 +310,27 @@ export default function HomePage() {
         />
 
         <div className="flex min-h-[calc(100vh-3.5rem)] flex-col items-center justify-center px-4 py-10 sm:py-14">
-          {/* Hero başlık — tam genişlik */}
+          {/* Hero heading — full width */}
           <div className="mb-9 w-full max-w-4xl text-center">
             <h1 className="text-[clamp(2rem,5.2vw,4.25rem)] font-bold leading-[1.05] tracking-tight text-[#1d1d1f]">
-              Konuşarak Hazırla, Yayınla{" "}
+              Build by Chatting, Publish{" "}
               <span className="bg-gradient-to-r from-[#6c5ce7] to-[#a855f7] bg-clip-text text-transparent">
-                Dijitalde Pazarla.
+                and Market Digitally.
               </span>
             </h1>
             <p className="mx-auto mt-4 max-w-lg text-sm leading-relaxed text-zinc-500 sm:text-base">
-              Yapay zekamız web sitenizi oluşturur, arama motorlarına hazır hale
-              getirir ve pazarlamanızı destekler.
+              Our AI builds your website, gets it ready for search engines and
+              powers your marketing.
             </p>
           </div>
 
           <main id="hero" className="w-full max-w-3xl">
-
-            {/* Segmented control — macOS tarzı kayan pill */}
+            {/* Segmented control — macOS-style sliding pill */}
             <div className="mb-6 flex justify-center">
               <div
                 className="glass relative inline-flex items-center gap-1 rounded-full p-1"
                 role="tablist"
-                aria-label="Site oluşturma motoru"
+                aria-label="Site building engine"
               >
                 <span
                   aria-hidden
@@ -381,7 +379,7 @@ export default function HomePage() {
               </div>
             </div>
 
-            {/* Chat kartı */}
+            {/* Chat card */}
             <div className="glass-strong mx-auto max-w-3xl overflow-hidden rounded-[32px]">
               <div className="p-7 sm:p-10">
                 <form onSubmit={handleSubmit} className="space-y-4">
@@ -413,7 +411,7 @@ export default function HomePage() {
 
                   <div className="flex items-center justify-between gap-4 pt-2">
                     <p className="text-xs text-zinc-500">
-                      150'den fazla işletmenin güvendiği platform
+                      Trusted by more than 150 businesses
                     </p>
                     <button
                       type="submit"
@@ -449,9 +447,6 @@ export default function HomePage() {
               </div>
             </div>
 
-            {/* Projeler — chat kartının altında ayrı section.
-               Solver CMS'e geçişte keskin kaymayı önlemek için her zaman
-               render edilir, sadece görünürlüğü yumuşakça yönetilir. */}
             {authContext ? (
               <section
                 aria-hidden={isSolver}

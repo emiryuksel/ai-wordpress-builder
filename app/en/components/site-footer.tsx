@@ -18,27 +18,27 @@ type FooterColumn = {
 
 const COLUMNS: FooterColumn[] = [
   {
-    title: "Ürün",
+    title: "Product",
     links: [
-      { label: "Nasıl çalışır", href: "/#nasil-calisir" },
-      { label: "Özellikler", href: "/#ozellikler" },
-      { label: "Fiyatlandırma", href: "/#fiyatlandirma" },
+      { label: "How it works", href: "/en/#how-it-works" },
+      { label: "Features", href: "/en/#features" },
+      { label: "Pricing", href: "/en/#pricing" },
     ],
   },
   {
-    title: "Yasal",
+    title: "Legal",
     links: [
-      { label: "Gizlilik Politikası", href: "/legal/gizlilik" },
-      { label: "Kullanım Koşulları", href: "/legal/kullanim-kosullari" },
-      { label: "Çerez Politikası", href: "/legal/cerez-politikasi" },
-      { label: "KVKK Aydınlatma Metni", href: "/legal/kvkk" },
+      { label: "Privacy Policy", href: "/en/legal/privacy" },
+      { label: "Terms of Service", href: "/en/legal/terms" },
+      { label: "Cookie Policy", href: "/en/legal/cookies" },
+      { label: "Data Protection Notice", href: "/en/legal/data-protection" },
     ],
   },
   {
-    title: "İletişim",
+    title: "Contact",
     links: [
-      { label: "withsolver.com", href: "https://withsolver.com/tr", external: true },
-      { label: "Destek", href: "mailto:destek@withsolver.com", external: true },
+      { label: "withsolver.com", href: "https://withsolver.com", external: true },
+      { label: "Support", href: "mailto:destek@withsolver.com", external: true },
     ],
   },
 ];
@@ -46,7 +46,7 @@ const COLUMNS: FooterColumn[] = [
 function SocialIcon({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <a
-      href="https://withsolver.com/tr"
+      href="https://withsolver.com"
       aria-label={label}
       className="flex h-9 w-9 items-center justify-center rounded-full border border-black/10 bg-white/60 text-zinc-500 transition hover:bg-white hover:text-[#5847e0]"
     >
@@ -57,10 +57,10 @@ function SocialIcon({ label, children }: { label: string; children: React.ReactN
 
 export default function SiteFooter() {
   return (
-    <footer id="iletisim" className="border-t border-black/5 bg-white/40 backdrop-blur-xl">
+    <footer id="contact" className="border-t border-black/5 bg-white/40 backdrop-blur-xl">
       <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
         <div className="grid gap-12 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
-          {/* Marka bloğu */}
+          {/* Brand block */}
           <div>
             <Image
               src="/logo-light.png"
@@ -70,8 +70,8 @@ export default function SiteFooter() {
               className="h-7 w-auto"
             />
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-zinc-500">
-              Yapay zeka destekli WordPress site oluşturucu. Konuşarak inşa edin,
-              dakikalar içinde yayınlayın.
+              AI-powered WordPress site builder. Build by chatting, publish in
+              minutes.
             </p>
 
             <div className="mt-6 flex items-center gap-2">
@@ -93,7 +93,7 @@ export default function SiteFooter() {
             </div>
           </div>
 
-          {/* Link sütunları */}
+          {/* Link columns */}
           {COLUMNS.map((column) => (
             <div key={column.title}>
               <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
@@ -124,17 +124,17 @@ export default function SiteFooter() {
           ))}
         </div>
 
-        {/* Alt bar */}
+        {/* Bottom bar */}
         <div className="mt-14 flex flex-col items-center justify-between gap-4 border-t border-black/5 pt-6 sm:flex-row">
           <p className="text-xs text-zinc-400">
-            © {new Date().getFullYear()} withSolver. Tüm hakları saklıdır.
+            © {new Date().getFullYear()} withSolver. All rights reserved.
           </p>
 
           <div className="flex items-center gap-2">
             <span className="text-xs font-medium uppercase tracking-wide text-zinc-400">
-              Dil:
+              Language:
             </span>
-            <LanguageSwitch active="tr" variant="footer" />
+            <LanguageSwitch active="en" variant="footer" />
           </div>
         </div>
       </div>
