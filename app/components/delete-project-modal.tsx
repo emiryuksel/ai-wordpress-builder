@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 type DeleteProjectModalProps = {
   open: boolean;
@@ -20,6 +21,11 @@ export default function DeleteProjectModal({
   const [confirmTitle, setConfirmTitle] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (open) {
@@ -29,7 +35,7 @@ export default function DeleteProjectModal({
     }
   }, [open, projectId]);
 
-  if (!open) {
+  if (!open || !mounted) {
     return null;
   }
 
@@ -70,10 +76,10 @@ export default function DeleteProjectModal({
     }
   }
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/50 px-4 backdrop-blur-sm">
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#1d1b4b]/30 px-4 backdrop-blur-md">
       <div
-        className="w-full max-w-md rounded-2xl border border-zinc-200 bg-white p-6 shadow-xl dark:border-zinc-800 dark:bg-zinc-900"
+        className="glass-strong w-full max-w-md overflow-hidden rounded-[28px] p-7"
         role="dialog"
         aria-modal="true"
         aria-labelledby="delete-project-modal-title"
@@ -82,49 +88,54 @@ export default function DeleteProjectModal({
           <div>
             <h2
               id="delete-project-modal-title"
-              className="text-lg font-semibold text-zinc-900 dark:text-zinc-50"
+              className="text-xl font-semibold tracking-tight text-[#1d1d1f]"
             >
               Projeyi sil
             </h2>
-            <p className="mt-1 text-sm text-zinc-500">
-              Bu işlem geri alınamaz. WordPress container&apos;ı, veritabanı ve
-              tüm site dosyaları kalıcı olarak silinir.
+            <p className="mt-1.5 text-sm leading-relaxed text-zinc-500">
+              Bu işlem geri alınamaz. Siteniz ve tüm içeriği kalıcı olarak silinir.
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
             disabled={loading}
-            className="rounded-lg px-2 py-1 text-sm text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-800 disabled:opacity-60 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+            aria-label="Kapat"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/60 bg-white/50 text-zinc-500 transition hover:bg-white/80 hover:text-zinc-800 disabled:opacity-60"
           >
-            Kapat
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path
+                d="M4 4l8 8M12 4l-8 8"
+                stroke="currentColor"
+                strokeWidth="1.75"
+                strokeLinecap="round"
+              />
+            </svg>
           </button>
         </div>
 
-        <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/50 dark:text-red-200">
+        <div className="mt-5 rounded-2xl border border-red-200/70 bg-red-50/70 px-4 py-3 text-sm text-red-800">
           <p className="font-medium">{siteTitle}</p>
-          <p className="mt-1 text-red-700 dark:text-red-300">
+          <p className="mt-1 text-red-700">
             Silmek için aşağıya proje adını tam olarak yazın.
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="mt-5 space-y-4">
           <label className="block space-y-1.5 text-sm">
-            <span className="font-medium text-zinc-700 dark:text-zinc-300">
-              Proje adı
-            </span>
+            <span className="font-medium text-zinc-700">Proje adı</span>
             <input
               value={confirmTitle}
               onChange={(event) => setConfirmTitle(event.target.value)}
               autoComplete="off"
               spellCheck={false}
               placeholder={siteTitle}
-              className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-zinc-900 outline-none focus:border-red-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50"
+              className="w-full rounded-xl border border-zinc-300 bg-white px-4 py-2.5 text-[#1d1d1f] shadow-[inset_0_1px_2px_rgba(30,27,75,0.05)] outline-none transition placeholder:text-zinc-400 hover:border-zinc-400 focus:border-red-400 focus:ring-4 focus:ring-red-500/12"
             />
           </label>
 
           {error ? (
-            <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
+            <p className="rounded-2xl border border-red-200/70 bg-red-50/80 px-4 py-2.5 text-sm text-red-700">
               {error}
             </p>
           ) : null}
@@ -134,20 +145,21 @@ export default function DeleteProjectModal({
               type="button"
               onClick={onClose}
               disabled={loading}
-              className="inline-flex h-11 flex-1 items-center justify-center rounded-xl border border-zinc-200 px-4 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 disabled:opacity-60 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              className="inline-flex h-11 flex-1 items-center justify-center rounded-full border border-white/70 bg-white/60 px-4 text-sm font-medium text-zinc-700 transition hover:bg-white/90 disabled:opacity-60"
             >
               Vazgeç
             </button>
             <button
               type="submit"
               disabled={loading || !canDelete}
-              className="inline-flex h-11 flex-1 items-center justify-center rounded-xl bg-red-600 px-4 text-sm font-medium text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex h-11 flex-1 items-center justify-center rounded-full bg-gradient-to-b from-red-500 to-red-600 px-4 text-sm font-semibold text-white shadow-[0_8px_20px_-6px_rgba(220,38,38,0.6)] transition hover:from-red-500 hover:to-red-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loading ? "Siliniyor..." : "Projeyi sil"}
             </button>
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

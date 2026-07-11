@@ -22,25 +22,62 @@ function CopyRow({ label, value }: { label: string; value: string }) {
   }
 
   return (
-    <div className="flex items-center justify-between gap-3 px-4 py-3">
-      <div className="min-w-0 flex-1">
-        <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
-          {label}
-        </p>
-        <p className="mt-0.5 truncate font-mono text-sm text-zinc-900 dark:text-zinc-50">
-          {value}
-        </p>
-      </div>
+    <div className="px-4 py-3">
+      <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-400">
+        {label}
+      </p>
       <button
         type="button"
         onClick={() => void handleCopy()}
-        className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-          copied
-            ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
-            : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-600"
-        }`}
+        title="Kopyalamak için tıklayın"
+        className="group mt-1.5 flex w-full items-center justify-between gap-3 rounded-xl border border-zinc-300 bg-white px-3 py-2 text-left shadow-[inset_0_1px_2px_rgba(30,27,75,0.05)] transition hover:border-[#6c5ce7]/50 hover:bg-[#6c5ce7]/5"
       >
-        {copied ? "Kopyalandı" : "Kopyala"}
+        <span className="min-w-0 flex-1 truncate font-mono text-sm text-[#1d1d1f]">
+          {value}
+        </span>
+        <span
+          className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition ${
+            copied
+              ? "bg-emerald-100 text-emerald-700"
+              : "bg-[#6c5ce7]/12 text-[#5847e0] group-hover:bg-[#6c5ce7]/20"
+          }`}
+        >
+          {copied ? (
+            <>
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path
+                  d="m3.5 8.5 3 3 6-7"
+                  stroke="currentColor"
+                  strokeWidth="1.75"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              Kopyalandı
+            </>
+          ) : (
+            <>
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <rect
+                  x="5.5"
+                  y="5.5"
+                  width="8"
+                  height="8"
+                  rx="1.5"
+                  stroke="currentColor"
+                  strokeWidth="1.4"
+                />
+                <path
+                  d="M10.5 5.5v-1a1.5 1.5 0 0 0-1.5-1.5h-5A1.5 1.5 0 0 0 2.5 4.5v5A1.5 1.5 0 0 0 4 11h1"
+                  stroke="currentColor"
+                  strokeWidth="1.4"
+                  strokeLinecap="round"
+                />
+              </svg>
+              Kopyala
+            </>
+          )}
+        </span>
       </button>
     </div>
   );
@@ -48,26 +85,26 @@ function CopyRow({ label, value }: { label: string; value: string }) {
 
 export default function WordPressAccessCard({ access }: WordPressAccessCardProps) {
   return (
-    <div className="w-full max-w-[95%] overflow-hidden rounded-2xl border border-zinc-200/80 bg-white/90 shadow-sm backdrop-blur-xl dark:border-zinc-700/80 dark:bg-zinc-900/90">
-      <div className="border-b border-zinc-100 px-4 py-3.5 dark:border-zinc-800">
-        <p className="text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
+    <div className="glass w-full max-w-[95%] overflow-hidden rounded-[24px]">
+      <div className="border-b border-white/50 px-4 py-3.5">
+        <p className="text-sm font-semibold tracking-tight text-[#1d1d1f]">
           Siteniz hazır
         </p>
-        <p className="mt-1 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+        <p className="mt-1 text-xs leading-relaxed text-zinc-500">
           WordPress yönetim panelinize aşağıdaki bilgilerle giriş yapabilirsiniz.
         </p>
       </div>
 
-      <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+      <div className="divide-y divide-white/50">
         <div className="px-4 py-3">
-          <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-400">
             Yönetim paneli
           </p>
           <a
             href={access.adminUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-2 inline-flex items-center gap-2 rounded-xl bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+            className="mt-2 inline-flex items-center gap-2 rounded-full bg-gradient-to-b from-[#7b6cf0] to-[#5847e0] px-4 py-2 text-sm font-medium text-white shadow-[0_8px_20px_-6px_rgba(88,71,224,0.6)] transition hover:from-[#8577f2] hover:to-[#6353e6]"
           >
             Siteyi görüntüle
             <svg
@@ -91,12 +128,12 @@ export default function WordPressAccessCard({ access }: WordPressAccessCardProps
         <CopyRow label="Şifre" value={access.adminPassword} />
       </div>
 
-      <div className="border-t border-zinc-100 bg-zinc-50/80 px-4 py-3 dark:border-zinc-800 dark:bg-zinc-950/50">
-        <p className="text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+      <div className="border-t border-white/50 bg-white/30 px-4 py-3">
+        <p className="text-xs leading-relaxed text-zinc-500">
           Ekibimiz sizinle iletişime geçecektir. Sorularınız için{" "}
           <a
             href={`tel:${SUPPORT_PHONE.replace(/\s/g, "")}`}
-            className="font-medium text-zinc-700 underline decoration-zinc-300 underline-offset-2 transition hover:text-zinc-900 dark:text-zinc-300 dark:decoration-zinc-600 dark:hover:text-zinc-100"
+            className="font-medium text-[#5847e0] underline decoration-[#6c5ce7]/40 underline-offset-2 transition hover:text-[#4a3bd0]"
           >
             {SUPPORT_PHONE}
           </a>

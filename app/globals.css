@@ -1,26 +1,102 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Apple-like aydınlık canvas */
+  --background: #fbfbfd;
+  --foreground: #1d1d1f;
+
+  /* Mor aksan (görseldeki indigo tonu) */
+  --accent: #6c5ce7;
+  --accent-strong: #5847e0;
+  --accent-soft: rgba(108, 92, 231, 0.12);
+
+  /* Liquid glass yüzey değişkenleri */
+  --glass-bg: rgba(255, 255, 255, 0.55);
+  --glass-bg-strong: rgba(255, 255, 255, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.7);
+  --glass-shadow: 0 20px 60px -20px rgba(30, 27, 75, 0.28);
+  --glass-inset: inset 0 1px 0 0 rgba(255, 255, 255, 0.65);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, var(--font-geist-sans), "SF Pro Text",
+    "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Arka plandaki yumuşak, hareketli mor mesh gradient lekeleri.
+   Glass yüzeylerin altında derinlik hissi yaratır. */
+.app-canvas {
+  position: relative;
+  isolation: isolate;
+  background-color: var(--background);
+}
+
+.app-canvas::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-image:
+    radial-gradient(
+      42rem 42rem at 12% -10%,
+      rgba(108, 92, 231, 0.22),
+      transparent 60%
+    ),
+    radial-gradient(
+      38rem 38rem at 90% 8%,
+      rgba(88, 71, 224, 0.18),
+      transparent 58%
+    ),
+    radial-gradient(
+      50rem 50rem at 70% 108%,
+      rgba(163, 148, 255, 0.2),
+      transparent 60%
+    );
+  animation: canvas-drift 24s ease-in-out infinite alternate;
+}
+
+@keyframes canvas-drift {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  100% {
+    transform: translate3d(-1.5%, 2%, 0) scale(1.06);
+  }
+}
+
+/* Liquid glass yüzey — kartlar, header, input konteyneri için */
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow), var(--glass-inset);
+}
+
+.glass-strong {
+  background: var(--glass-bg-strong);
+  backdrop-filter: blur(28px) saturate(190%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow), var(--glass-inset);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-canvas::before {
+    animation: none;
+  }
 }

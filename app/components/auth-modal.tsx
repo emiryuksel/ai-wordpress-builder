@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 type AuthMode = "register" | "login";
 
@@ -41,6 +42,11 @@ export default function AuthModal({
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (open) {
@@ -49,7 +55,7 @@ export default function AuthModal({
     }
   }, [open, initialMode]);
 
-  if (!open) {
+  if (!open || !mounted) {
     return null;
   }
 
@@ -97,10 +103,12 @@ export default function AuthModal({
     }
   }
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/50 px-4 backdrop-blur-sm">
+  const isRegister = mode === "register";
+
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#1d1b4b]/30 px-4 backdrop-blur-md">
       <div
-        className="w-full max-w-md rounded-2xl border border-zinc-200 bg-white p-6 shadow-xl dark:border-zinc-800 dark:bg-zinc-900"
+        className="glass-strong w-full max-w-md overflow-hidden rounded-[28px] p-7"
         role="dialog"
         aria-modal="true"
         aria-labelledby="auth-modal-title"
@@ -109,11 +117,11 @@ export default function AuthModal({
           <div>
             <h2
               id="auth-modal-title"
-              className="text-lg font-semibold text-zinc-900 dark:text-zinc-50"
+              className="text-xl font-semibold tracking-tight text-[#1d1d1f]"
             >
-              {mode === "register" ? "Hesap oluşturun" : "Giriş yapın"}
+              {isRegister ? "Hesap oluşturun" : "Giriş yapın"}
             </h2>
-            <p className="mt-1 text-sm text-zinc-500">
+            <p className="mt-1.5 text-sm leading-relaxed text-zinc-500">
               {pendingPrompt
                 ? "Site oluşturmaya devam etmek için hesabınızı tamamlayın."
                 : "Projelerinizi kaydetmek ve yönetmek için giriş yapın."}
@@ -122,37 +130,58 @@ export default function AuthModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg px-2 py-1 text-sm text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-800 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+            aria-label="Kapat"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/60 bg-white/50 text-zinc-500 transition hover:bg-white/80 hover:text-zinc-800"
           >
-            Kapat
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path
+                d="M4 4l8 8M12 4l-8 8"
+                stroke="currentColor"
+                strokeWidth="1.75"
+                strokeLinecap="round"
+              />
+            </svg>
           </button>
         </div>
 
-        <div className="mt-4 flex gap-2">
+        <div
+          className="glass relative mt-5 flex items-center gap-1 rounded-full p-1"
+          role="tablist"
+          aria-label="Giriş modu"
+        >
+          <span
+            aria-hidden="true"
+            className="absolute top-1 bottom-1 rounded-full bg-white shadow-[0_4px_14px_-4px_rgba(30,27,75,0.35)] transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
+            style={
+              isRegister
+                ? { left: "0.25rem", right: "50%" }
+                : { left: "50%", right: "0.25rem" }
+            }
+          />
           <button
             type="button"
+            role="tab"
+            aria-selected={isRegister}
             onClick={() => {
               setMode("register");
               setError(null);
             }}
-            className={`flex-1 rounded-xl border px-3 py-2 text-sm font-medium transition ${
-              mode === "register"
-                ? "border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900"
-                : "border-zinc-200 text-zinc-600 dark:border-zinc-700 dark:text-zinc-300"
+            className={`relative z-10 flex-1 rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+              isRegister ? "text-[#1d1d1f]" : "text-zinc-500 hover:text-zinc-700"
             }`}
           >
             Kayıt ol
           </button>
           <button
             type="button"
+            role="tab"
+            aria-selected={!isRegister}
             onClick={() => {
               setMode("login");
               setError(null);
             }}
-            className={`flex-1 rounded-xl border px-3 py-2 text-sm font-medium transition ${
-              mode === "login"
-                ? "border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900"
-                : "border-zinc-200 text-zinc-600 dark:border-zinc-700 dark:text-zinc-300"
+            className={`relative z-10 flex-1 rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+              !isRegister ? "text-[#1d1d1f]" : "text-zinc-500 hover:text-zinc-700"
             }`}
           >
             Giriş yap
@@ -160,51 +189,45 @@ export default function AuthModal({
         </div>
 
         <form onSubmit={handleSubmit} className="mt-5 space-y-4">
-          {mode === "register" ? (
+          {isRegister ? (
             <label className="block space-y-1.5 text-sm">
-              <span className="font-medium text-zinc-700 dark:text-zinc-300">
-                Ad soyad
-              </span>
+              <span className="font-medium text-zinc-700">Ad soyad</span>
               <input
                 value={name}
                 onChange={(event) => setName(event.target.value)}
-                className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-zinc-900 outline-none focus:border-blue-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50"
+                className="w-full rounded-xl border border-zinc-300 bg-white px-4 py-2.5 text-[#1d1d1f] shadow-[inset_0_1px_2px_rgba(30,27,75,0.05)] outline-none transition placeholder:text-zinc-400 hover:border-zinc-400 focus:border-[#6c5ce7] focus:ring-4 focus:ring-[#6c5ce7]/12"
                 placeholder="Adınız Soyadınız"
               />
             </label>
           ) : null}
 
           <label className="block space-y-1.5 text-sm">
-            <span className="font-medium text-zinc-700 dark:text-zinc-300">
-              E-posta
-            </span>
+            <span className="font-medium text-zinc-700">E-posta</span>
             <input
               type="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               required
-              className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-zinc-900 outline-none focus:border-blue-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50"
+              className="w-full rounded-xl border border-zinc-300 bg-white px-4 py-2.5 text-[#1d1d1f] shadow-[inset_0_1px_2px_rgba(30,27,75,0.05)] outline-none transition placeholder:text-zinc-400 hover:border-zinc-400 focus:border-[#6c5ce7] focus:ring-4 focus:ring-[#6c5ce7]/12"
               placeholder="ornek@firma.com"
             />
           </label>
 
           <label className="block space-y-1.5 text-sm">
-            <span className="font-medium text-zinc-700 dark:text-zinc-300">
-              Şifre
-            </span>
+            <span className="font-medium text-zinc-700">Şifre</span>
             <input
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               required
               minLength={8}
-              className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-zinc-900 outline-none focus:border-blue-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50"
+              className="w-full rounded-xl border border-zinc-300 bg-white px-4 py-2.5 text-[#1d1d1f] shadow-[inset_0_1px_2px_rgba(30,27,75,0.05)] outline-none transition placeholder:text-zinc-400 hover:border-zinc-400 focus:border-[#6c5ce7] focus:ring-4 focus:ring-[#6c5ce7]/12"
               placeholder="En az 8 karakter"
             />
           </label>
 
           {error ? (
-            <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
+            <p className="rounded-2xl border border-red-200/70 bg-red-50/80 px-4 py-2.5 text-sm text-red-700">
               {error}
             </p>
           ) : null}
@@ -212,20 +235,21 @@ export default function AuthModal({
           <button
             type="submit"
             disabled={loading}
-            className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white transition hover:bg-zinc-800 disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900"
+            className="inline-flex h-11 w-full items-center justify-center rounded-full bg-gradient-to-b from-[#7b6cf0] to-[#5847e0] px-4 text-sm font-semibold text-white shadow-[0_8px_20px_-6px_rgba(88,71,224,0.6)] transition hover:from-[#8577f2] hover:to-[#6353e6] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {loading
               ? "İşleniyor..."
-              : mode === "register"
+              : isRegister
                 ? "Hesap oluştur ve devam et"
                 : "Giriş yap ve devam et"}
           </button>
         </form>
 
-        <p className="mt-4 text-xs text-zinc-500">
+        <p className="mt-4 text-center text-xs text-zinc-500">
           Ücretsiz planda en fazla 2 site oluşturabilirsiniz.
         </p>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

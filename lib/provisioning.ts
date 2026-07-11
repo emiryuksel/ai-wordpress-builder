@@ -389,20 +389,20 @@ export function getStatusMessage(
 
   switch (status) {
     case "provisioning":
-      return `Docker container'ları başlatılıyor${elapsed}...`;
+      return `Siteniz hazırlanıyor${elapsed}...`;
     case "installing":
       if (isBlog) {
-        return `Blog kuruluyor: yazılar ve AI görseller üretiliyor${elapsed}...`;
+        return `Blogunuz kuruluyor: yazılar ve görseller hazırlanıyor${elapsed}...`;
       }
       if (isCorporate) {
-        return `Siteniz kuruluyor: hero ve diğer AI görseller üretiliyor${elapsed}...`;
+        return `Siteniz kuruluyor: sayfalar ve görseller hazırlanıyor${elapsed}...`;
       }
-      return `Mağaza kuruluyor: ürünler ve AI görseller hazırlanıyor${elapsed}...`;
+      return `Mağazanız kuruluyor: ürünler ve görseller hazırlanıyor${elapsed}...`;
     case "ready":
-      return "Site hazır!";
+      return "Siteniz hazır!";
     case "error":
-      return "Kurulum sırasında bir hata oluştu.";
+      return "Bir sorun oluştu, tekrar deniyoruz.";
     default:
-      return `İşlem devam ediyor${elapsed}...`;
+      return `Hazırlanıyor${elapsed}...`;
   }
 }
