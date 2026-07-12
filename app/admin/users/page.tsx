@@ -29,18 +29,18 @@ type UsersResponse = {
 
 function roleBadge(role: string): string {
   return role === "admin"
-    ? "bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300"
-    : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300";
+    ? "bg-[#6c5ce7]/12 text-[#5847e0]"
+    : "bg-white/60 text-zinc-600";
 }
 
 function statusBadge(status: string): string {
   switch (status) {
     case "ready":
-      return "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300";
+      return "bg-emerald-100/80 text-emerald-700";
     case "error":
-      return "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300";
+      return "bg-red-100/80 text-red-700";
     default:
-      return "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300";
+      return "bg-[#6c5ce7]/12 text-[#5847e0]";
   }
 }
 
@@ -88,7 +88,7 @@ export default function AdminUsersPage() {
 
   if (loading) {
     return (
-      <div className="rounded-2xl border border-zinc-200 bg-white px-4 py-8 text-sm text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="glass rounded-3xl px-4 py-8 text-sm text-zinc-500">
         Üyelikler yükleniyor...
       </div>
     );
@@ -96,7 +96,7 @@ export default function AdminUsersPage() {
 
   if (error) {
     return (
-      <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-6 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
+      <div className="rounded-3xl border border-red-200 bg-red-50/80 px-4 py-6 text-sm text-red-700 backdrop-blur-sm">
         {error}
       </div>
     );
@@ -105,18 +105,16 @@ export default function AdminUsersPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">
-          Üyelikler
-        </h1>
+        <h1 className="text-xl font-semibold text-[#1d1d1f]">Üyelikler</h1>
         <p className="mt-1 text-sm text-zinc-500">
           Kayıtlı tüm kullanıcılar ve oluşturdukları siteler.
         </p>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="glass overflow-hidden rounded-3xl">
         <div className="overflow-x-auto">
           <table className="min-w-full text-left text-sm">
-            <thead className="border-b border-zinc-100 bg-zinc-50 text-xs uppercase tracking-wide text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950/60">
+            <thead className="border-b border-white/40 bg-white/40 text-xs uppercase tracking-wide text-zinc-500">
               <tr>
                 <th className="px-4 py-3 font-medium">Kullanıcı</th>
                 <th className="px-4 py-3 font-medium">Rol</th>
@@ -126,15 +124,13 @@ export default function AdminUsersPage() {
                 <th className="px-4 py-3 font-medium" />
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+            <tbody className="divide-y divide-white/40">
               {users.map((user) => {
                 const expanded = expandedUserId === user.id;
                 return (
                   <tr key={user.id} className="align-top">
                     <td className="px-4 py-4">
-                      <p className="font-medium text-zinc-900 dark:text-zinc-50">
-                        {user.name}
-                      </p>
+                      <p className="font-medium text-[#1d1d1f]">{user.name}</p>
                       <p className="text-xs text-zinc-500">{user.email}</p>
                     </td>
                     <td className="px-4 py-4">
@@ -144,10 +140,10 @@ export default function AdminUsersPage() {
                         {user.role === "admin" ? "Admin" : "Kullanıcı"}
                       </span>
                     </td>
-                    <td className="px-4 py-4 capitalize text-zinc-700 dark:text-zinc-300">
+                    <td className="px-4 py-4 capitalize text-zinc-700">
                       {user.plan}
                     </td>
-                    <td className="px-4 py-4 text-zinc-700 dark:text-zinc-300">
+                    <td className="px-4 py-4 text-zinc-700">
                       {user.projectCount}
                     </td>
                     <td className="px-4 py-4 text-zinc-500">
@@ -160,7 +156,7 @@ export default function AdminUsersPage() {
                           onClick={() =>
                             setExpandedUserId(expanded ? null : user.id)
                           }
-                          className="text-xs font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400"
+                          className="text-xs font-medium text-[#5847e0] transition hover:text-[#6353e6]"
                         >
                           {expanded ? "Gizle" : "Siteleri göster"}
                         </button>
@@ -177,22 +173,22 @@ export default function AdminUsersPage() {
       </div>
 
       {expandedUserId ? (
-        <section className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+        <section className="glass rounded-3xl p-4">
           {users
             .filter((user) => user.id === expandedUserId)
             .map((user) => (
               <div key={user.id}>
-                <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+                <h2 className="text-sm font-semibold text-[#1d1d1f]">
                   {user.name} — siteler
                 </h2>
                 <ul className="mt-3 space-y-2">
                   {user.projects.map((project) => (
                     <li
                       key={project.projectId}
-                      className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200 px-4 py-3 dark:border-zinc-800"
+                      className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/60 bg-white/50 px-4 py-3"
                     >
                       <div className="min-w-0">
-                        <p className="font-medium text-zinc-900 dark:text-zinc-50">
+                        <p className="font-medium text-[#1d1d1f]">
                           {project.siteTitle}
                         </p>
                         <p className="text-xs text-zinc-500">
@@ -208,7 +204,7 @@ export default function AdminUsersPage() {
                         </span>
                         <Link
                           href={`/builder/${project.projectId}`}
-                          className="rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                          className="rounded-full border border-white/60 bg-white/50 px-3 py-1.5 text-xs font-medium text-zinc-700 transition hover:bg-white/80"
                         >
                           Builder
                         </Link>

@@ -1,8 +1,12 @@
 @import "tailwindcss";
 
 html {
+  min-height: 100%;
   scroll-behavior: smooth;
   scroll-padding-top: 5rem;
+  /* Sayfa sonunda elastik aşırı kaydırmayı ve sonsuz beyaz boşluğu engelle */
+  overscroll-behavior: none;
+  background: #fbfbfd;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -39,8 +43,10 @@ html {
 }
 
 body {
+  min-height: 100%;
   background: var(--background);
   color: var(--foreground);
+  overscroll-behavior: none;
   font-family:
     -apple-system, BlinkMacSystemFont, var(--font-geist-sans), "SF Pro Text",
     "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -128,8 +134,8 @@ body {
   animation: locale-fade-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-/* Dil değişiminde tıklama anında fade-out */
-.locale-transition[data-leaving="true"] {
+/* Dil değişiminde tıklama anında fade-out (class kaldırılmış olsa da id ile çalışır) */
+#locale-root[data-leaving="true"] {
   animation: none;
   opacity: 0;
   transform: translateY(-4px);
@@ -140,7 +146,7 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .locale-transition,
-  .locale-transition[data-leaving="true"] {
+  #locale-root[data-leaving="true"] {
     animation: none;
     transition: none;
     opacity: 1;

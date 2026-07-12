@@ -67,9 +67,7 @@ export default function AdminLogsPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">
-            System logs
-          </h1>
+          <h1 className="text-xl font-semibold text-[#1d1d1f]">System logs</h1>
           <p className="mt-1 text-sm text-zinc-500">
             Sign-in, registration, site creation and editing activity.
           </p>
@@ -82,7 +80,7 @@ export default function AdminLogsPage() {
           <select
             value={selectedAction}
             onChange={(event) => setSelectedAction(event.target.value)}
-            className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-blue-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50"
+            className="rounded-2xl border border-zinc-300 bg-white px-3 py-2 text-sm text-[#1d1d1f] shadow-[inset_0_1px_2px_rgba(30,27,75,0.06)] outline-none transition focus:border-[#6c5ce7] focus:ring-2 focus:ring-[#6c5ce7]/20"
           >
             <option value="">All logs</option>
             {actions.map((action) => (
@@ -95,18 +93,18 @@ export default function AdminLogsPage() {
       </div>
 
       {loading ? (
-        <div className="rounded-2xl border border-zinc-200 bg-white px-4 py-8 text-sm text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="glass rounded-3xl px-4 py-8 text-sm text-zinc-500">
           Loading logs...
         </div>
       ) : error ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-6 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
+        <div className="rounded-3xl border border-red-200 bg-red-50/80 px-4 py-6 text-sm text-red-700 backdrop-blur-sm">
           {error}
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="glass overflow-hidden rounded-3xl">
           <div className="overflow-x-auto">
             <table className="min-w-full text-left text-sm">
-              <thead className="border-b border-zinc-100 bg-zinc-50 text-xs uppercase tracking-wide text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950/60">
+              <thead className="border-b border-white/40 bg-white/40 text-xs uppercase tracking-wide text-zinc-500">
                 <tr>
                   <th className="px-4 py-3 font-medium">Time</th>
                   <th className="px-4 py-3 font-medium">Event</th>
@@ -115,7 +113,7 @@ export default function AdminLogsPage() {
                   <th className="px-4 py-3 font-medium">IP</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+              <tbody className="divide-y divide-white/40">
                 {logs.length === 0 ? (
                   <tr>
                     <td
@@ -131,11 +129,11 @@ export default function AdminLogsPage() {
                       <td className="px-4 py-3 whitespace-nowrap text-zinc-500">
                         {new Date(entry.timestamp).toLocaleString("en-US")}
                       </td>
-                      <td className="px-4 py-3 text-zinc-900 dark:text-zinc-50">
+                      <td className="px-4 py-3 text-[#1d1d1f]">
                         {getActivityActionLabel(entry.action)}
                       </td>
                       <td className="px-4 py-3">
-                        <p className="text-zinc-900 dark:text-zinc-50">
+                        <p className="text-[#1d1d1f]">
                           {entry.userName || "—"}
                         </p>
                         <p className="text-xs text-zinc-500">
@@ -147,7 +145,7 @@ export default function AdminLogsPage() {
                           entry.resourceType === "project" ? (
                             <Link
                               href={`/en/builder/${entry.resourceId}`}
-                              className="text-blue-600 hover:text-blue-700 dark:text-blue-400"
+                              className="text-[#5847e0] transition hover:text-[#6353e6]"
                             >
                               {entry.resourceId.slice(0, 8)}…
                             </Link>

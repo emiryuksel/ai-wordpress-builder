@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -27,39 +28,41 @@ const NAV_ITEMS: Array<{
 
 function navClassName(active: boolean): string {
   return active
-    ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-    : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-50";
+    ? "bg-gradient-to-b from-[#7b6cf0] to-[#5847e0] text-white shadow-[0_6px_16px_-6px_rgba(88,71,224,0.6)]"
+    : "text-zinc-600 hover:bg-white/60 hover:text-[#1d1d1f]";
 }
 
 export default function AdminShell({ user, children }: AdminShellProps) {
   const pathname = usePathname();
 
   return (
-    <div className="flex min-h-full flex-col bg-zinc-50 dark:bg-zinc-950">
-      <header className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+    <div className="app-canvas flex min-h-full flex-1 flex-col">
+      <header className="sticky top-0 z-30 shrink-0 border-b border-white/30 bg-white/25 backdrop-blur-xl backdrop-saturate-150">
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
-            <Link
-              href="/en"
-              className="text-sm font-semibold text-zinc-900 dark:text-zinc-50"
-            >
-              AI WordPress Builder
+            <Link href="/en" className="flex min-w-0 items-center">
+              <Image
+                src="/logo-light.png"
+                alt="Solver"
+                width={112}
+                height={40}
+                priority
+                className="h-7 w-auto"
+              />
             </Link>
-            <span className="rounded-full bg-violet-100 px-2.5 py-1 text-xs font-medium text-violet-700 dark:bg-violet-950 dark:text-violet-300">
+            <span className="rounded-full bg-[#6c5ce7]/12 px-2.5 py-1 text-xs font-medium text-[#5847e0]">
               Admin
             </span>
           </div>
 
           <div className="flex items-center gap-3">
             <div className="hidden text-right sm:block">
-              <p className="text-sm font-medium text-zinc-900 dark:text-zinc-50">
-                {user.name}
-              </p>
+              <p className="text-sm font-medium text-[#1d1d1f]">{user.name}</p>
               <p className="text-xs text-zinc-500">{user.email}</p>
             </div>
             <Link
               href="/en"
-              className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              className="rounded-full border border-white/60 bg-white/50 px-3 py-1.5 text-sm text-zinc-700 transition hover:bg-white/80"
             >
               Home
             </Link>
@@ -78,7 +81,7 @@ export default function AdminShell({ user, children }: AdminShellProps) {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`block shrink-0 rounded-xl px-3 py-2 text-sm font-medium transition md:shrink ${navClassName(active)}`}
+                  className={`block shrink-0 rounded-2xl px-3 py-2 text-sm font-medium transition md:shrink ${navClassName(active)}`}
                 >
                   {item.label}
                 </Link>

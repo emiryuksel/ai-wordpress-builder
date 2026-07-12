@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+
 type Feature = {
   icon: string;
   badge: string;
@@ -290,19 +292,17 @@ export default function LandingSections() {
               ))}
             </div>
 
-            {/* Right: preview skeleton */}
-            <div className="space-y-4 bg-white/30 p-6">
-              <div className="mx-auto h-3 w-2/3 rounded-full bg-[#6c5ce7]/20" />
-              <div className="mx-auto flex justify-center">
-                <div className="h-8 w-24 rounded-lg bg-gradient-to-b from-[#7b6cf0] to-[#5847e0]" />
-              </div>
-              <div className="grid grid-cols-3 gap-4 pt-4">
-                {[0, 1, 2].map((i) => (
-                  <div
-                    key={i}
-                    className="h-20 rounded-xl border border-white/50 bg-white/60"
-                  />
-                ))}
+            {/* Right: live site preview */}
+            <div className="bg-white/30 p-4 sm:p-6">
+              <div className="overflow-hidden rounded-xl border border-white/60 bg-white shadow-[0_20px_50px_-24px_rgba(30,27,75,0.45)]">
+                <Image
+                  src="/image-site-wp.png"
+                  alt="Preview of an example WordPress site built with Solver AI"
+                  width={1920}
+                  height={995}
+                  className="h-auto w-full"
+                  sizes="(max-width: 768px) 100vw, 700px"
+                />
               </div>
             </div>
           </div>

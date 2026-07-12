@@ -76,10 +76,10 @@ export default function RootLayout({
   return (
     <html
       lang="tr"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} antialiased`}
     >
       <body
-        className="min-h-full flex flex-col"
+        className="flex min-h-screen flex-col"
         suppressHydrationWarning
       >
         <LocaleTransition>{children}</LocaleTransition>

@@ -23,7 +23,18 @@ export default function LocaleTransition({
   }, [pathname]);
 
   return (
-    <div id="locale-root" ref={ref} className="locale-transition flex min-h-full flex-1 flex-col">
+    <div
+      id="locale-root"
+      ref={ref}
+      onAnimationEnd={(event) => {
+        // Fade-in bitince transform/animation kalıntısını temizle,
+        // böylece sayfa sonunda ekstra scroll alanı / beyaz boşluk oluşmaz.
+        if (event.animationName && ref.current) {
+          ref.current.classList.remove("locale-transition");
+        }
+      }}
+      className="locale-transition flex min-h-full flex-1 flex-col"
+    >
       {children}
     </div>
   );

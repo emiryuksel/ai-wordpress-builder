@@ -44,13 +44,11 @@ function StatCard({
   hint?: string;
 }) {
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+    <div className="glass rounded-3xl p-5">
       <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
         {label}
       </p>
-      <p className="mt-2 text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
-        {value}
-      </p>
+      <p className="mt-2 text-2xl font-semibold text-[#1d1d1f]">{value}</p>
       {hint ? <p className="mt-1 text-xs text-zinc-500">{hint}</p> : null}
     </div>
   );
@@ -101,7 +99,7 @@ export default function AdminOverviewPage() {
 
   if (loading) {
     return (
-      <div className="rounded-2xl border border-zinc-200 bg-white px-4 py-8 text-sm text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="glass rounded-3xl px-4 py-8 text-sm text-zinc-500">
         Admin özeti yükleniyor...
       </div>
     );
@@ -109,7 +107,7 @@ export default function AdminOverviewPage() {
 
   if (error || !data) {
     return (
-      <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-6 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
+      <div className="rounded-3xl border border-red-200 bg-red-50/80 px-4 py-6 text-sm text-red-700 backdrop-blur-sm">
         {error ?? "Özet yüklenemedi."}
       </div>
     );
@@ -118,9 +116,7 @@ export default function AdminOverviewPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">
-          Admin özeti
-        </h1>
+        <h1 className="text-xl font-semibold text-[#1d1d1f]">Admin özeti</h1>
         <p className="mt-1 text-sm text-zinc-500">
           Üyelikler, projeler ve son sistem aktiviteleri.
         </p>
@@ -128,10 +124,7 @@ export default function AdminOverviewPage() {
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Toplam üyelik" value={data.stats.totalUsers} />
-        <StatCard
-          label="Admin hesapları"
-          value={data.stats.adminUsers}
-        />
+        <StatCard label="Admin hesapları" value={data.stats.adminUsers} />
         <StatCard
           label="Toplam site"
           value={data.stats.totalProjects}
@@ -141,26 +134,26 @@ export default function AdminOverviewPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <section className="rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-          <div className="flex items-center justify-between border-b border-zinc-100 px-4 py-3 dark:border-zinc-800">
-            <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+        <section className="glass overflow-hidden rounded-3xl">
+          <div className="flex items-center justify-between border-b border-white/40 px-4 py-3">
+            <h2 className="text-sm font-semibold text-[#1d1d1f]">
               Son üyelikler
             </h2>
             <Link
               href="/admin/users"
-              className="text-xs font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400"
+              className="text-xs font-medium text-[#5847e0] transition hover:text-[#6353e6]"
             >
               Tümünü gör
             </Link>
           </div>
-          <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
+          <ul className="divide-y divide-white/40">
             {data.recentUsers.map((user) => (
               <li
                 key={user.id}
                 className="flex items-center justify-between gap-3 px-4 py-3"
               >
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-50">
+                  <p className="truncate text-sm font-medium text-[#1d1d1f]">
                     {user.name}
                   </p>
                   <p className="truncate text-xs text-zinc-500">{user.email}</p>
@@ -178,24 +171,24 @@ export default function AdminOverviewPage() {
           </ul>
         </section>
 
-        <section className="rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-          <div className="flex items-center justify-between border-b border-zinc-100 px-4 py-3 dark:border-zinc-800">
-            <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+        <section className="glass overflow-hidden rounded-3xl">
+          <div className="flex items-center justify-between border-b border-white/40 px-4 py-3">
+            <h2 className="text-sm font-semibold text-[#1d1d1f]">
               Son kayıtlar
             </h2>
             <Link
               href="/admin/logs"
-              className="text-xs font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400"
+              className="text-xs font-medium text-[#5847e0] transition hover:text-[#6353e6]"
             >
               Tümünü gör
             </Link>
           </div>
-          <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
+          <ul className="divide-y divide-white/40">
             {data.recentActivity.map((entry) => (
               <li key={entry.id} className="px-4 py-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-sm text-zinc-900 dark:text-zinc-50">
+                    <p className="text-sm text-[#1d1d1f]">
                       {getActivityActionLabel(entry.action)}
                     </p>
                     <p className="truncate text-xs text-zinc-500">
