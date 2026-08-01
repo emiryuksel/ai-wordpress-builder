@@ -600,9 +600,11 @@ footer.site-footer,
   border-top-color: ${footerBg} !important;
 }
 /* Footer'ın kenarlarda (yatay scrollbar payı, container margin'i vb.) beyaz
-   taşması olmasın diye header ile aynı güvenilir full-bleed ::before katmanını
-   kullan. box-shadow/clip-path bazı render durumlarında kenarları kesiyordu;
-   viewport genişliğinde mutlak konumlu bir arka plan bunu garanti eder. */
+   taşması olmasın diye footer kök elemanının kendisini tam genişlikte boyarız.
+   Daha önce kullanılan left:50% + width:100vw + margin-left:-50vw hilesi dikey
+   scrollbar genişliğini de saydığı için barı sağa kaydırıp sağ kenarda beyaz
+   şerit bırakıyordu. Bunun yerine ::before'u footer'ın kendi kutusuna (left:0/
+   right:0) sabitliyoruz; footer zaten body genişliğinde olduğundan tam kaplar. */
 #colophon,
 .site-footer,
 footer.site-footer,
@@ -610,6 +612,10 @@ footer.site-footer,
 .site-primary-footer-wrap {
   position: relative !important;
   overflow: visible !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
   border-top: 0 !important;
   margin-top: 0 !important;
 }
@@ -620,9 +626,8 @@ footer.site-footer::before {
   display: block !important;
   position: absolute !important;
   z-index: 0 !important;
-  left: 50% !important;
-  width: 100vw !important;
-  margin-left: -50vw !important;
+  left: 0 !important;
+  right: 0 !important;
   top: 0 !important;
   bottom: 0 !important;
   background-color: ${footerBg} !important;
