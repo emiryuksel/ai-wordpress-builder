@@ -206,6 +206,7 @@ export async function completeProjectSetup(
         project.prompt,
         project.siteTitle,
         project.suggestedPrimaryColor || "#1e40af",
+        project.theme ?? "modern",
       );
       try {
         await applyAstraBlogChrome(projectId, "#ffffff");
@@ -248,6 +249,7 @@ export async function completeProjectSetup(
             recovered.suggestedPrimaryColor || "#1e40af",
             recovered.prompt,
             recovered.siteTitle,
+            recovered.theme ?? "modern",
           );
           try {
             await applyPendingCorporateBrand(projectId);

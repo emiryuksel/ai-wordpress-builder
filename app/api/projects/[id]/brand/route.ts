@@ -5,7 +5,8 @@ import { logActivity } from "@/lib/activity-log";
 import { applyCorporateBrand } from "@/lib/corporate-content";
 import { getProjectForUser, ProjectAccessError } from "@/lib/project-access";
 import { applyBrandSlug, resolveProjectSiteUrl } from "@/lib/project-site-url";
-import { updateProject } from "@/lib/project-store";
+import { updateProject, type CorporateTheme } from "@/lib/project-store";
+import { startFullProvisioning } from "@/lib/provisioning";
 import { isCorporateProject } from "@/lib/site-type";
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -19,6 +20,11 @@ interface BrandBody {
   primaryColor?: string;
   headingFont?: string;
   bodyFont?: string;
+  theme?: CorporateTheme;
+}
+
+function normalizeTheme(value: unknown): CorporateTheme {
+  return value === "premium" ? "premium" : "modern";
 }
 
 export async function POST(request: Request, context: RouteContext) {
@@ -57,13 +63,71 @@ export async function POST(request: Request, context: RouteContext) {
     Boolean(body.brandName?.trim()) ||
     Boolean(body.primaryColor?.trim()) ||
     Boolean(body.headingFont?.trim()) ||
-    Boolean(body.bodyFont?.trim());
+    Boolean(body.bodyFont?.trim()) ||
+    Boolean(body.theme);
 
   if (!hasBrandInput) {
     return NextResponse.json(
       { error: "En az bir marka alanı gerekli." },
       { status: 400 },
     );
+  }
+
+  // Taslak (draft) proje: kullanıcı marka kartını gönderdi, kurulum şimdi başlar.
+  // Seçilen tema + marka tercihleri kaydedilir ve provisioning tetiklenir.
+  if (project.status === "draft") {
+    const theme = normalizeTheme(body.theme);
+
+    let updatedProject = project;
+    if (body.brandName?.trim()) {
+      updatedProject = await applyBrandSlug(project, body.brandName);
+    }
+
+    await updateProject(projectId, {
+      status: "provisioning",
+      theme,
+      pendingBrand: {
+        brandName: body.brandName,
+        primaryColor: body.primaryColor,
+        headingFont: body.headingFont,
+        bodyFont: body.bodyFont,
+        theme,
+      },
+      brandOnboardingComplete: true,
+      siteTitle: body.brandName?.trim() || updatedProject.siteTitle,
+      suggestedPrimaryColor:
+        body.primaryColor || updatedProject.suggestedPrimaryColor,
+    });
+
+    const latest = await getProjectForUser(projectId, user.id);
+
+    void startFullProvisioning(projectId, {
+      siteType: latest.siteType,
+      suggestedTheme: latest.suggestedTheme,
+      suggestedPlugins: latest.suggestedPlugins,
+      siteTitle: latest.siteTitle,
+      hostPort: latest.hostPort,
+      siteUrl: latest.siteUrl,
+      userPrompt: latest.prompt,
+    });
+
+    logActivity({
+      action: "project.brand.update",
+      user,
+      resourceType: "project",
+      resourceId: projectId,
+      metadata: { started: true, theme },
+    });
+
+    return NextResponse.json({
+      ok: true,
+      queued: true,
+      started: true,
+      slug: latest.slug,
+      siteUrl: resolveProjectSiteUrl(latest),
+      reply:
+        "Harika. Siteniz seçtiğiniz tema ve marka tercihleriyle hazırlanmaya başladı. Bu birkaç dakika sürebilir.",
+    });
   }
 
   if (project.status !== "ready") {
@@ -111,6 +175,7 @@ export async function POST(request: Request, context: RouteContext) {
       brandOnboardingComplete: true,
       siteTitle: body.brandName?.trim() || updatedProject.siteTitle,
       suggestedPrimaryColor: body.primaryColor || updatedProject.suggestedPrimaryColor,
+      ...(body.theme ? { theme: normalizeTheme(body.theme) } : {}),
     });
 
     const latest = await getProjectForUser(projectId, user.id);

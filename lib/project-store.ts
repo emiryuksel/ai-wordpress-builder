@@ -3,13 +3,21 @@ import path from "node:path";
 
 import { getDataRoot } from "@/lib/data-paths";
 
-export type ProjectStatus = "provisioning" | "installing" | "ready" | "error";
+export type ProjectStatus =
+  | "draft"
+  | "provisioning"
+  | "installing"
+  | "ready"
+  | "error";
+
+export type CorporateTheme = "modern" | "premium";
 
 export interface PendingBrand {
   brandName?: string;
   primaryColor?: string;
   headingFont?: string;
   bodyFont?: string;
+  theme?: CorporateTheme;
 }
 
 export interface Project {
@@ -22,6 +30,7 @@ export interface Project {
   suggestedTheme: string;
   suggestedPlugins: string[];
   suggestedPrimaryColor: string;
+  theme?: CorporateTheme;
   hostPort: number;
   siteUrl: string;
   status: ProjectStatus;
@@ -102,6 +111,7 @@ export async function updateProject(
       | "slug"
       | "siteTitle"
       | "suggestedPrimaryColor"
+      | "theme"
       | "pendingBrand"
       | "brandOnboardingComplete"
       | "wpAdminUser"

@@ -40,6 +40,7 @@ export async function GET(_request: Request, context: RouteContext) {
       status: project.status,
       suggestedPrimaryColor: project.suggestedPrimaryColor,
       suggestedTheme: project.suggestedTheme,
+      theme: project.theme ?? "modern",
       suggestedPlugins: project.suggestedPlugins,
       prompt: project.prompt,
       isCorporate: isCorporateProject(project),

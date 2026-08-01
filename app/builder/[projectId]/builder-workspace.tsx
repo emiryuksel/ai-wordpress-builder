@@ -18,6 +18,7 @@ type ProjectResponse = {
   status: string;
   suggestedPrimaryColor: string;
   suggestedTheme: string;
+  theme?: "modern" | "premium";
   suggestedPlugins?: string[];
   prompt?: string;
   isCorporate?: boolean;
@@ -78,6 +79,19 @@ const BODY_FONT_OPTIONS = [
   { id: "open-sans", label: "Open Sans", value: "Open Sans" },
   { id: "roboto", label: "Roboto", value: "Roboto" },
   { id: "lato", label: "Lato", value: "Lato" },
+] as const;
+
+const THEME_OPTIONS = [
+  {
+    id: "modern",
+    label: "Modern",
+    desc: "Yan yana metin ve görsel, sade ve dengeli düzen.",
+  },
+  {
+    id: "premium",
+    label: "Premium",
+    desc: "Tam genişlik görsel üzerine büyük metin, sinematik hero.",
+  },
 ] as const;
 
 function createMessage(role: ChatMessage["role"], content: string): ChatMessage {
@@ -179,6 +193,8 @@ export default function BuilderWorkspace({ projectId }: BuilderWorkspaceProps) {
     useState<(typeof HEADING_FONT_OPTIONS)[number]["id"]>("poppins");
   const [brandBodyFontId, setBrandBodyFontId] =
     useState<(typeof BODY_FONT_OPTIONS)[number]["id"]>("inter");
+  const [brandThemeId, setBrandThemeId] =
+    useState<(typeof THEME_OPTIONS)[number]["id"]>("modern");
   const [brandSaving, setBrandSaving] = useState(false);
   const [brandError, setBrandError] = useState<string | null>(null);
 
@@ -200,6 +216,30 @@ export default function BuilderWorkspace({ projectId }: BuilderWorkspaceProps) {
     // Marka kartında varsayılan olarak Beyaz seçili gelir (ilk sıradaki seçenek).
     // AI'nın önerdiği renge otomatik geçmiyoruz; kullanıcı isterse seçer.
     setBrandColorId("white");
+    setBrandThemeId(project.theme === "premium" ? "premium" : "modern");
+
+    const isDraft = project.status === "draft";
+
+    // Taslak akış: kullanıcının ana sayfada yazdığı prompt burada sohbete düşer,
+    // asistan kısa bir onay verir ve marka kartı açılır. Kurulum, marka kartı
+    // gönderilince başlar.
+    if (isDraft) {
+      sessionStorage.setItem(brandPanelSessionKey(project.projectId), "1");
+      setBrandPanelOpen(true);
+      const promptText = project.prompt?.trim();
+      const seeded: ChatMessage[] = [];
+      if (promptText) {
+        seeded.push(createMessage("user", promptText));
+      }
+      seeded.push(
+        createMessage(
+          "assistant",
+          "Harika bir başlangıç. Şimdi markanızı tanımlayalım: aşağıdan marka adınızı, rengi, fontları ve bir tema (Modern veya Premium) seçin. Gönderdiğinizde siteniz seçtiğiniz tarzda hazırlanmaya başlayacak.",
+        ),
+      );
+      setMessages(seeded);
+      return;
+    }
 
     const openBrandPanel = shouldOpenBrandPanel(project);
     if (openBrandPanel) {
@@ -299,7 +339,12 @@ export default function BuilderWorkspace({ projectId }: BuilderWorkspaceProps) {
   }, [project, projectId]);
 
   useEffect(() => {
-    if (!project || project.status === "ready" || project.status === "error") {
+    if (
+      !project ||
+      project.status === "draft" ||
+      project.status === "ready" ||
+      project.status === "error"
+    ) {
       if (project?.status === "ready") {
         setPreviewReachable(true);
       }
@@ -486,6 +531,9 @@ export default function BuilderWorkspace({ projectId }: BuilderWorkspaceProps) {
     const bodyFont =
       BODY_FONT_OPTIONS.find((option) => option.id === brandBodyFontId) ??
       BODY_FONT_OPTIONS[0];
+    const themeOption =
+      THEME_OPTIONS.find((option) => option.id === brandThemeId) ??
+      THEME_OPTIONS[0];
 
     setBrandSaving(true);
     setBrandError(null);
@@ -499,6 +547,7 @@ export default function BuilderWorkspace({ projectId }: BuilderWorkspaceProps) {
           primaryColor: colorOption.hex,
           headingFont: headingFont.value,
           bodyFont: bodyFont.value,
+          theme: themeOption.id,
         }),
       });
 
@@ -506,6 +555,7 @@ export default function BuilderWorkspace({ projectId }: BuilderWorkspaceProps) {
         reply?: string;
         error?: string;
         queued?: boolean;
+        started?: boolean;
         slug?: string;
         siteUrl?: string;
       };
@@ -524,6 +574,9 @@ export default function BuilderWorkspace({ projectId }: BuilderWorkspaceProps) {
               siteUrl: data.siteUrl ?? current.siteUrl,
               siteTitle: brandName.trim() || current.siteTitle,
               suggestedPrimaryColor: colorOption.hex,
+              theme: themeOption.id,
+              // Taslaktan kurulum başladıysa status'ü ilerlet ki polling devreye girsin.
+              status: data.started ? "provisioning" : current.status,
               brandOnboardingComplete: true,
               wordpressAccess: current.wordpressAccess
                 ? {
@@ -560,7 +613,7 @@ export default function BuilderWorkspace({ projectId }: BuilderWorkspaceProps) {
         ...current,
         createMessage(
           "user",
-          `Marka: ${brandName.trim()}, ${colorOption.label}, başlık ${headingFont.label}, gövde ${bodyFont.label}`,
+          `Marka: ${brandName.trim()}, ${colorOption.label}, başlık ${headingFont.label}, gövde ${bodyFont.label}, tema ${themeOption.label}`,
         ),
         createMessage(
           "assistant",
@@ -893,6 +946,40 @@ export default function BuilderWorkspace({ projectId }: BuilderWorkspaceProps) {
                     </div>
                   </fieldset>
 
+                  <fieldset className="mt-4">
+                    <legend className="text-xs font-medium text-zinc-600">
+                      Tema
+                    </legend>
+                    <div className="mt-2 grid grid-cols-2 gap-2">
+                      {THEME_OPTIONS.map((option) => {
+                        const selected = brandThemeId === option.id;
+                        return (
+                          <button
+                            key={option.id}
+                            type="button"
+                            onClick={() => setBrandThemeId(option.id)}
+                            className={`rounded-2xl border px-3 py-2.5 text-left transition ${
+                              selected
+                                ? "border-transparent bg-gradient-to-b from-[#7b6cf0] to-[#5847e0] text-white shadow-[0_6px_16px_-6px_rgba(88,71,224,0.6)]"
+                                : "border-zinc-300 bg-white text-zinc-700 shadow-[inset_0_1px_2px_rgba(30,27,75,0.05)] hover:border-zinc-400 hover:bg-zinc-50"
+                            }`}
+                          >
+                            <span className="block text-xs font-semibold">
+                              {option.label}
+                            </span>
+                            <span
+                              className={`mt-0.5 block text-[11px] leading-snug ${
+                                selected ? "text-white/80" : "text-zinc-500"
+                              }`}
+                            >
+                              {option.desc}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </fieldset>
+
                   {brandError ? (
                     <p className="mt-3 text-xs text-red-600">{brandError}</p>
                   ) : null}
@@ -902,7 +989,11 @@ export default function BuilderWorkspace({ projectId }: BuilderWorkspaceProps) {
                     disabled={brandSaving || !brandName.trim()}
                     className="mt-4 w-full rounded-full bg-gradient-to-b from-[#7b6cf0] to-[#5847e0] py-2.5 text-sm font-semibold text-white shadow-[0_8px_20px_-6px_rgba(88,71,224,0.6)] transition hover:from-[#8577f2] hover:to-[#6353e6] disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {brandSaving ? "Uygulanıyor…" : "Markayı uygula"}
+                    {brandSaving
+                      ? "Uygulanıyor…"
+                      : project?.status === "draft"
+                        ? "Siteyi oluştur"
+                        : "Markayı uygula"}
                   </button>
                 </form>
               </div>

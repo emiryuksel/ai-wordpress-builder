@@ -18,6 +18,7 @@ import {
 import { applyChatAction } from "@/lib/wp-cli";
 import { isCorporateProject } from "@/lib/site-type";
 import { installCorporateWpGuard } from "@/lib/corporate-wp-guard";
+import type { CorporateTheme } from "@/lib/project-store";
 
 export { isCorporateProject };
 
@@ -421,6 +422,7 @@ function planPath(projectId: string): string {
 export function buildCorporatePageHtml(
   plan: CorporateContentPlan,
   primaryColor: string,
+  theme: CorporateTheme = "modern",
 ): string {
   const products = plan.products
     .map(
@@ -433,13 +435,33 @@ export function buildCorporatePageHtml(
     )
     .join("");
 
-  return `<!-- ai-wp:corporate-home -->
-<style>
-.corp-page{--corp-primary:${primaryColor};--corp-on-primary:${corpOnColor(primaryColor)};color:#0f172a}
-.corp-hero{display:grid;grid-template-columns:1.1fr .9fr;gap:2.5rem;align-items:center;width:100vw;max-width:100vw;margin-left:calc(50% - 50vw);margin-right:calc(50% - 50vw);padding:3.5rem max(1.25rem,calc(50vw - 600px + 1.25rem));box-sizing:border-box;background:linear-gradient(105deg,#f1f5f9 0%,#e8eef6 45%,#dde7f0 100%);border-radius:0;border-bottom:1px solid #cbd5e1;margin-bottom:2.5rem;box-shadow:inset 0 -1px 0 rgba(15,23,42,.05)}
+  const isPremium = theme === "premium";
+
+  // Hero bloğu ve ona ait CSS temaya göre değişir; ürün/kanıt/galeri/footer ortak.
+  const heroStyle = isPremium
+    ? `.corp-hero{position:relative;width:100vw;max-width:100vw;margin-left:calc(50% - 50vw);margin-right:calc(50% - 50vw);min-height:min(82vh,640px);display:flex;align-items:flex-end;padding:0;margin-bottom:2.5rem;overflow:hidden;border-radius:0}
+.corp-hero-media{position:absolute;inset:0;z-index:0}
+.corp-hero-img{width:100%;height:100%;object-fit:cover;display:block}
+.corp-hero::after{content:"";position:absolute;inset:0;z-index:1;background:linear-gradient(180deg,rgba(9,13,25,.15) 0%,rgba(9,13,25,.45) 55%,rgba(9,13,25,.82) 100%)}
+.corp-hero-copy{position:relative;z-index:2;width:100%;max-width:760px;padding:0 max(1.5rem,calc(50vw - 600px + 1.5rem)) clamp(2.5rem,6vw,4.5rem);color:#fff}
+.corp-hero h1{font-size:clamp(2.25rem,5vw,4rem);font-weight:800;line-height:1.05;letter-spacing:-.02em;margin:0 0 1.25rem;text-shadow:0 2px 30px rgba(0,0,0,.35)}
+.corp-hero p{color:rgba(255,255,255,.88);margin:0 0 2rem;font-size:clamp(1rem,1.6vw,1.25rem);max-width:34rem;line-height:1.6}
+.corp-cta{display:inline-block;background:var(--corp-primary);color:var(--corp-on-primary);padding:1rem 2.25rem;border-radius:999px;text-decoration:none;font-weight:600;font-size:1.05rem;box-shadow:0 18px 40px rgba(0,0,0,.3);transition:transform .2s}
+.corp-cta:hover{transform:translateY(-2px)}`
+    : `.corp-hero{display:grid;grid-template-columns:1.1fr .9fr;gap:2.5rem;align-items:center;width:100vw;max-width:100vw;margin-left:calc(50% - 50vw);margin-right:calc(50% - 50vw);padding:3.5rem max(1.25rem,calc(50vw - 600px + 1.25rem));box-sizing:border-box;background:linear-gradient(105deg,#f1f5f9 0%,#e8eef6 45%,#dde7f0 100%);border-radius:0;border-bottom:1px solid #cbd5e1;margin-bottom:2.5rem;box-shadow:inset 0 -1px 0 rgba(15,23,42,.05)}
 .corp-hero h1{font-size:2.5rem;font-weight:700;line-height:1.2;margin:0 0 1rem}.corp-hero p{color:#475569;margin:0 0 1.5rem;font-size:1.05rem}
 .corp-cta{display:inline-block;background:var(--corp-primary);color:var(--corp-on-primary);padding:.85rem 1.75rem;border-radius:8px;text-decoration:none;font-weight:600}
-.corp-hero-img{width:100%;border-radius:10px;object-fit:cover;min-height:280px;box-shadow:0 18px 40px rgba(15,23,42,.12)}
+.corp-hero-img{width:100%;border-radius:10px;object-fit:cover;min-height:280px;box-shadow:0 18px 40px rgba(15,23,42,.12)}`;
+
+  const heroMarkup = isPremium
+    ? `<section id="corp-hero" class="corp-hero"><div class="corp-hero-media"><img class="corp-hero-img" src="${CORP_IMAGE_SLOT.hero()}" alt="hero"></div><div class="corp-hero-copy"><h1>${escapeHtml(plan.hero.title)}</h1><p>${escapeHtml(plan.hero.subtitle)}</p><a class="corp-cta" href="#urunler">${escapeHtml(plan.hero.ctaLabel)}</a></div></section>`
+    : `<section id="corp-hero" class="corp-hero"><div class="corp-hero-copy"><h1>${escapeHtml(plan.hero.title)}</h1><p>${escapeHtml(plan.hero.subtitle)}</p><a class="corp-cta" href="#urunler">${escapeHtml(plan.hero.ctaLabel)}</a></div><div class="corp-hero-media"><img class="corp-hero-img" src="${CORP_IMAGE_SLOT.hero()}" alt="hero"></div></section>`;
+
+  return `<!-- ai-wp:corporate-home -->
+<!-- ai-wp:theme:${theme} -->
+<style>
+.corp-page{--corp-primary:${primaryColor};--corp-on-primary:${corpOnColor(primaryColor)};color:#0f172a}
+${heroStyle}
 .corp-section{padding:2rem 0}.corp-section h2{font-size:1.75rem;margin-bottom:1.25rem}
 .corp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1.25rem}
 .corp-card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:1rem}
@@ -454,12 +476,17 @@ export function buildCorporatePageHtml(
 @media(max-width:768px){.corp-hero{grid-template-columns:1fr}}
 </style>
 <div class="corp-page">
-<section id="corp-hero" class="corp-hero"><div class="corp-hero-copy"><h1>${escapeHtml(plan.hero.title)}</h1><p>${escapeHtml(plan.hero.subtitle)}</p><a class="corp-cta" href="#urunler">${escapeHtml(plan.hero.ctaLabel)}</a></div><div class="corp-hero-media"><img class="corp-hero-img" src="${CORP_IMAGE_SLOT.hero()}" alt="hero"></div></section>
+${heroMarkup}
 <section id="urunler" class="corp-section"><h2>Ürünler ve Hizmetler</h2><div class="corp-grid">${products}</div></section>
 <section id="sosyal-kanit" class="corp-section"><div class="corp-proof"><div class="corp-stars">${renderStars(plan.socialProof.rating)}</div><p>"${escapeHtml(plan.socialProof.testimonial)}"</p><p class="corp-proof-count">${plan.socialProof.customerCount.toLocaleString("tr-TR")}+ müşteriye hizmet verdik</p></div></section>
 <section id="galeri" class="corp-section"><h2>Galeri</h2><div class="corp-gallery">${gallery}</div></section>
 <footer id="corp-footer" class="corp-footer"><p><strong>İletişim</strong></p><p>E-posta: ${escapeHtml(plan.footer.email)}</p><p>Telefon: ${escapeHtml(plan.footer.phone)}</p><p>${escapeHtml(plan.footer.address)}</p><div class="corp-social"><span>LinkedIn</span><span>Instagram</span><span>X</span></div><p style="margin-top:1rem;font-size:.85rem;opacity:.8">${escapeHtml(plan.footer.copyright)}</p></footer>
 </div>`;
+}
+
+/** Üretilen kurumsal ana sayfa HTML'inden tema işaretini geri okur. */
+function extractCorporateTheme(html: string): CorporateTheme {
+  return /ai-wp:theme:premium/i.test(html) ? "premium" : "modern";
 }
 
 async function savePlan(projectId: string, plan: CorporateContentPlan): Promise<void> {
@@ -865,13 +892,15 @@ async function rebuildCorporateHomePreservingImages(
   projectId: string,
   plan: CorporateContentPlan,
   primaryColor: string,
+  themeOverride?: CorporateTheme,
 ): Promise<void> {
   const oldHtml = await getCorporateHomeHtml(projectId);
   const heroUrl = extractImageUrlsByClass(oldHtml, "corp-hero-img")[0];
   const productUrls = extractImageUrlsByClass(oldHtml, "corp-card-img");
   const galleryUrls = extractGalleryImageUrls(oldHtml);
+  const theme = themeOverride ?? extractCorporateTheme(oldHtml);
 
-  let html = buildCorporatePageHtml(plan, primaryColor);
+  let html = buildCorporatePageHtml(plan, primaryColor, theme);
 
   if (heroUrl && isResolvableImageUrl(heroUrl)) {
     html = html.replace(CORP_IMAGE_SLOT.hero(), heroUrl);
@@ -1217,6 +1246,7 @@ export async function setupCorporateContent(
   userPrompt: string,
   siteTitle: string,
   primaryColor = "#1e40af",
+  theme: CorporateTheme = "modern",
 ): Promise<void> {
   const pageId = await getHomePageId(projectId);
   if (!pageId) throw new Error("Kurumsal ana sayfa henüz oluşturulmadı.");
@@ -1227,7 +1257,7 @@ export async function setupCorporateContent(
   await savePlan(projectId, plan);
   await updateHomeContent(
     projectId,
-    buildCorporatePageHtml(plan, primaryColor),
+    buildCorporatePageHtml(plan, primaryColor, theme),
   );
   await installCorporateWpGuard(projectId);
 }
@@ -1376,6 +1406,7 @@ export async function repairCorporateSite(
   primaryColor: string,
   userPrompt = "",
   siteTitle = "",
+  theme: CorporateTheme = "modern",
 ): Promise<void> {
   const { applyAstraBlogChrome } = await import("@/lib/wp-cli");
   const pageId = await getHomePageId(projectId);
@@ -1383,7 +1414,7 @@ export async function repairCorporateSite(
     ? await execWpCli(projectId, ["post", "get", pageId, "--field=post_content"])
     : "";
   if (!content.includes("ai-wp:corporate-home")) {
-    await setupCorporateContent(projectId, userPrompt, siteTitle || "Kurumsal Site", primaryColor);
+    await setupCorporateContent(projectId, userPrompt, siteTitle || "Kurumsal Site", primaryColor, theme);
   }
   await installCorporateWpGuard(projectId);
   await upgradeCorporateHtmlBlock(projectId);
@@ -1402,6 +1433,7 @@ export interface CorporateBrandInput {
   primaryColor?: string;
   headingFont?: string;
   bodyFont?: string;
+  theme?: CorporateTheme;
 }
 
 export async function applyCorporateBrand(
@@ -1451,6 +1483,33 @@ export async function applyCorporateBrand(
       value: color,
     });
     messages.push("Marka rengi güncellendi.");
+  }
+
+  // Tema (modern/premium) değişimi: mevcut planı ve görselleri koruyarak ana
+  // sayfayı seçilen tema layout'uyla yeniden inşa et.
+  if (input.theme) {
+    try {
+      const currentHtml = await getCorporateHomeHtml(projectId);
+      const currentTheme = extractCorporateTheme(currentHtml);
+      if (currentTheme !== input.theme) {
+        const plan = await requireCorporatePlan(projectId);
+        const primaryColor =
+          input.primaryColor?.trim() || extractCorporatePrimaryColor(currentHtml);
+        await rebuildCorporateHomePreservingImages(
+          projectId,
+          plan,
+          primaryColor,
+          input.theme,
+        );
+        messages.push(
+          input.theme === "premium"
+            ? "Tema Premium olarak güncellendi."
+            : "Tema Modern olarak güncellendi.",
+        );
+      }
+    } catch (themeError) {
+      console.warn(`[corporate] Tema güncellenemedi (${projectId}):`, themeError);
+    }
   }
 
   if (messages.length === 0) throw new Error("En az bir marka alanı gerekli.");

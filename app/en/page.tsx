@@ -181,7 +181,7 @@ export default function HomePage() {
     const timeout = window.setTimeout(() => controller.abort(), PROVISION_TIMEOUT_MS);
 
     try {
-      const response = await fetch("/api/provision", {
+      const response = await fetch("/api/provision/draft", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt: trimmedPrompt }),
