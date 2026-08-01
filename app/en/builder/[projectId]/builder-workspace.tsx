@@ -534,6 +534,7 @@ export default function BuilderWorkspace({ projectId }: BuilderWorkspaceProps) {
     const themeOption =
       THEME_OPTIONS.find((option) => option.id === brandThemeId) ??
       THEME_OPTIONS[0];
+    const isPremiumTheme = themeOption.id === "premium";
 
     setBrandSaving(true);
     setBrandError(null);
@@ -544,7 +545,8 @@ export default function BuilderWorkspace({ projectId }: BuilderWorkspaceProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           brandName: brandName.trim(),
-          primaryColor: colorOption.hex,
+          // The Premium theme uses a fixed black & gold palette, so no color is sent.
+          ...(isPremiumTheme ? {} : { primaryColor: colorOption.hex }),
           headingFont: headingFont.value,
           bodyFont: bodyFont.value,
           theme: themeOption.id,
@@ -573,7 +575,9 @@ export default function BuilderWorkspace({ projectId }: BuilderWorkspaceProps) {
               slug: data.slug ?? current.slug,
               siteUrl: data.siteUrl ?? current.siteUrl,
               siteTitle: brandName.trim() || current.siteTitle,
-              suggestedPrimaryColor: colorOption.hex,
+              suggestedPrimaryColor: isPremiumTheme
+                ? current.suggestedPrimaryColor
+                : colorOption.hex,
               theme: themeOption.id,
               status: data.started ? "provisioning" : current.status,
               brandOnboardingComplete: true,
@@ -612,7 +616,9 @@ export default function BuilderWorkspace({ projectId }: BuilderWorkspaceProps) {
         ...current,
         createMessage(
           "user",
-          `Brand: ${brandName.trim()}, ${colorOption.label}, heading ${headingFont.label}, body ${bodyFont.label}, theme ${themeOption.label}`,
+          isPremiumTheme
+            ? `Brand: ${brandName.trim()}, heading ${headingFont.label}, body ${bodyFont.label}, theme ${themeOption.label} (black & gold)`
+            : `Brand: ${brandName.trim()}, ${colorOption.label}, heading ${headingFont.label}, body ${bodyFont.label}, theme ${themeOption.label}`,
         ),
         createMessage(
           "assistant",
@@ -820,47 +826,23 @@ export default function BuilderWorkspace({ projectId }: BuilderWorkspaceProps) {
               <div className="flex justify-start">
                 <form
                   onSubmit={handleBrandSubmit}
-                  className={`w-full max-w-[95%] rounded-[24px] p-4 transition-colors duration-500 ${
-                    brandThemeId === "premium"
-                      ? "border border-[#c9a24b]/40 bg-gradient-to-b from-[#141013] to-[#0b0a0c] shadow-[0_20px_60px_-20px_rgba(201,162,75,0.35),inset_0_1px_0_rgba(231,200,119,0.15)]"
-                      : "glass"
-                  }`}
+                  className="glass w-full max-w-[95%] rounded-[24px] p-4"
                 >
-                  <p
-                    className={`text-sm font-medium ${
-                      brandThemeId === "premium" ? "text-[#faf6ee]" : "text-[#1d1d1f]"
-                    }`}
-                  >
-                    {brandThemeId === "premium"
-                      ? "Define your premium brand"
-                      : "Define your brand"}
+                  <p className="text-sm font-medium text-[#1d1d1f]">
+                    Define your brand
                   </p>
-                  <p
-                    className={`mt-1 text-xs ${
-                      brandThemeId === "premium" ? "text-[#c9a24b]" : "text-zinc-500"
-                    }`}
-                  >
+                  <p className="mt-1 text-xs text-zinc-500">
                     {brandThemeId === "premium"
-                      ? "You picked a black & gold, cinematic theme."
+                      ? "The Premium theme uses a fixed black & gold palette."
                       : isSiteReady
                         ? "Your choices are reflected in the live preview."
                         : "Your preferences are saved while the site is being built and applied once it's ready."}
                   </p>
 
-                  <label
-                    className={`mt-4 block text-xs font-medium ${
-                      brandThemeId === "premium" ? "text-[#e7c877]" : "text-zinc-600"
-                    }`}
-                  >
+                  <label className="mt-4 block text-xs font-medium text-zinc-600">
                     <span className="flex items-center justify-between">
                       Brand name
-                      <span
-                        className={`font-normal ${
-                          brandThemeId === "premium"
-                            ? "text-[#c9a24b]/70"
-                            : "text-zinc-400"
-                        }`}
-                      >
+                      <span className="font-normal text-zinc-400">
                         editable
                       </span>
                     </span>
@@ -889,50 +871,40 @@ export default function BuilderWorkspace({ projectId }: BuilderWorkspaceProps) {
                     </div>
                   </label>
 
-                  <fieldset className="mt-4">
-                    <legend
-                      className={`text-xs font-medium ${
-                        brandThemeId === "premium"
-                          ? "text-[#e7c877]"
-                          : "text-zinc-600"
-                      }`}
-                    >
-                      Brand color
-                    </legend>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {BRAND_COLOR_OPTIONS.map((option) => {
-                        const selected = brandColorId === option.id;
-                        return (
-                          <button
-                            key={option.id}
-                            type="button"
-                            onClick={() => setBrandColorId(option.id)}
-                            className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
-                              selected
-                                ? "border-transparent bg-gradient-to-b from-[#7b6cf0] to-[#5847e0] text-white shadow-[0_6px_16px_-6px_rgba(88,71,224,0.6)]"
-                                : "border-zinc-300 bg-white text-zinc-700 shadow-[inset_0_1px_2px_rgba(30,27,75,0.05)] hover:border-zinc-400 hover:bg-zinc-50"
-                            }`}
-                          >
-                            <span
-                              className="inline-block h-3 w-3 rounded-full ring-1 ring-black/10"
-                              style={{ backgroundColor: option.hex }}
-                              aria-hidden
-                            />
-                            {option.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </fieldset>
+                  {brandThemeId !== "premium" ? (
+                    <fieldset className="mt-4">
+                      <legend className="text-xs font-medium text-zinc-600">
+                        Brand color
+                      </legend>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {BRAND_COLOR_OPTIONS.map((option) => {
+                          const selected = brandColorId === option.id;
+                          return (
+                            <button
+                              key={option.id}
+                              type="button"
+                              onClick={() => setBrandColorId(option.id)}
+                              className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                                selected
+                                  ? "border-transparent bg-gradient-to-b from-[#7b6cf0] to-[#5847e0] text-white shadow-[0_6px_16px_-6px_rgba(88,71,224,0.6)]"
+                                  : "border-zinc-300 bg-white text-zinc-700 shadow-[inset_0_1px_2px_rgba(30,27,75,0.05)] hover:border-zinc-400 hover:bg-zinc-50"
+                              }`}
+                            >
+                              <span
+                                className="inline-block h-3 w-3 rounded-full ring-1 ring-black/10"
+                                style={{ backgroundColor: option.hex }}
+                                aria-hidden
+                              />
+                              {option.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </fieldset>
+                  ) : null}
 
                   <fieldset className="mt-4">
-                    <legend
-                      className={`text-xs font-medium ${
-                        brandThemeId === "premium"
-                          ? "text-[#e7c877]"
-                          : "text-zinc-600"
-                      }`}
-                    >
+                    <legend className="text-xs font-medium text-zinc-600">
                       Heading font
                     </legend>
                     <div className="mt-2 flex flex-wrap gap-2">
@@ -958,13 +930,7 @@ export default function BuilderWorkspace({ projectId }: BuilderWorkspaceProps) {
                   </fieldset>
 
                   <fieldset className="mt-4">
-                    <legend
-                      className={`text-xs font-medium ${
-                        brandThemeId === "premium"
-                          ? "text-[#e7c877]"
-                          : "text-zinc-600"
-                      }`}
-                    >
+                    <legend className="text-xs font-medium text-zinc-600">
                       Body font
                     </legend>
                     <div className="mt-2 flex flex-wrap gap-2">
@@ -990,33 +956,21 @@ export default function BuilderWorkspace({ projectId }: BuilderWorkspaceProps) {
                   </fieldset>
 
                   <fieldset className="mt-4">
-                    <legend
-                      className={`text-xs font-medium ${
-                        brandThemeId === "premium"
-                          ? "text-[#c9a24b]"
-                          : "text-zinc-600"
-                      }`}
-                    >
+                    <legend className="text-xs font-medium text-zinc-600">
                       Theme
                     </legend>
                     <div className="mt-2 grid grid-cols-2 gap-2">
                       {THEME_OPTIONS.map((option) => {
                         const selected = brandThemeId === option.id;
-                        const premiumSelected =
-                          selected && option.id === "premium";
                         return (
                           <button
                             key={option.id}
                             type="button"
                             onClick={() => setBrandThemeId(option.id)}
                             className={`rounded-2xl border px-3 py-2.5 text-left transition ${
-                              premiumSelected
-                                ? "border-[#e7c877] bg-gradient-to-b from-[#1c1712] to-[#0d0b09] text-[#f5ead0] shadow-[0_8px_20px_-6px_rgba(201,162,75,0.55),inset_0_1px_0_rgba(231,200,119,0.25)]"
-                                : selected
-                                  ? "border-transparent bg-gradient-to-b from-[#7b6cf0] to-[#5847e0] text-white shadow-[0_6px_16px_-6px_rgba(88,71,224,0.6)]"
-                                  : brandThemeId === "premium"
-                                    ? "border-white/15 bg-white/5 text-zinc-300 hover:border-white/30 hover:bg-white/10"
-                                    : "border-zinc-300 bg-white text-zinc-700 shadow-[inset_0_1px_2px_rgba(30,27,75,0.05)] hover:border-zinc-400 hover:bg-zinc-50"
+                              selected
+                                ? "border-transparent bg-gradient-to-b from-[#7b6cf0] to-[#5847e0] text-white shadow-[0_6px_16px_-6px_rgba(88,71,224,0.6)]"
+                                : "border-zinc-300 bg-white text-zinc-700 shadow-[inset_0_1px_2px_rgba(30,27,75,0.05)] hover:border-zinc-400 hover:bg-zinc-50"
                             }`}
                           >
                             <span className="block text-xs font-semibold">
@@ -1024,13 +978,7 @@ export default function BuilderWorkspace({ projectId }: BuilderWorkspaceProps) {
                             </span>
                             <span
                               className={`mt-0.5 block text-[11px] leading-snug ${
-                                premiumSelected
-                                  ? "text-[#e7c877]/85"
-                                  : selected
-                                    ? "text-white/80"
-                                    : brandThemeId === "premium"
-                                      ? "text-zinc-400"
-                                      : "text-zinc-500"
+                                selected ? "text-white/80" : "text-zinc-500"
                               }`}
                             >
                               {option.desc}
@@ -1048,11 +996,7 @@ export default function BuilderWorkspace({ projectId }: BuilderWorkspaceProps) {
                   <button
                     type="submit"
                     disabled={brandSaving || !brandName.trim()}
-                    className={`mt-4 w-full rounded-full py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
-                      brandThemeId === "premium"
-                        ? "bg-gradient-to-b from-[#e7c877] to-[#c9a24b] text-[#1a1408] shadow-[0_10px_24px_-8px_rgba(201,162,75,0.7),inset_0_1px_0_rgba(255,255,255,0.4)] hover:from-[#f0d488] hover:to-[#d4ad56]"
-                        : "bg-gradient-to-b from-[#7b6cf0] to-[#5847e0] text-white shadow-[0_8px_20px_-6px_rgba(88,71,224,0.6)] hover:from-[#8577f2] hover:to-[#6353e6]"
-                    }`}
+                    className="mt-4 w-full rounded-full bg-gradient-to-b from-[#7b6cf0] to-[#5847e0] py-2.5 text-sm font-semibold text-white shadow-[0_8px_20px_-6px_rgba(88,71,224,0.6)] transition hover:from-[#8577f2] hover:to-[#6353e6] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {brandSaving
                       ? "Applying…"
