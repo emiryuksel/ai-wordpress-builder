@@ -8,6 +8,7 @@ import ProjectsList from "@/app/components/projects-list";
 import SiteHeader from "@/app/components/site-header";
 import LandingSections from "@/app/components/landing-sections";
 import SiteFooter from "@/app/components/site-footer";
+import SolverRedirectOverlay from "@/app/components/solver-redirect-overlay";
 
 type ProvisionResponse = {
   projectId: string;
@@ -122,6 +123,7 @@ export default function HomePage() {
     "register",
   );
   const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
+  const [solverRedirecting, setSolverRedirecting] = useState(false);
 
   const refreshProjects = useCallback(async () => {
     setProjectsLoading(true);
@@ -230,10 +232,14 @@ export default function HomePage() {
       return;
     }
 
-    // Solver CMS seçiliyse kullanıcıyı withsolver.com'a yönlendir.
+    // Solver CMS seçiliyse tam ekran geçiş animasyonunu göster, kısa bir
+    // beklemenin ardından withsolver.com'a yönlendir.
     if (engine === "solver") {
       const target = `${SOLVER_CMS_URL}?prompt=${encodeURIComponent(trimmedPrompt)}`;
-      window.location.href = target;
+      setSolverRedirecting(true);
+      window.setTimeout(() => {
+        window.location.href = target;
+      }, 1600);
       return;
     }
 
@@ -484,6 +490,12 @@ export default function HomePage() {
           setPendingPrompt(null);
         }}
         onSuccess={(context) => void handleAuthSuccess(context)}
+      />
+
+      <SolverRedirectOverlay
+        open={solverRedirecting}
+        title="Solver CMS'e yönlendiriliyorsunuz"
+        subtitle="Yapay zeka destekli Solver deneyimini hazırlıyoruz. Birkaç saniye içinde oradasınız."
       />
     </>
   );

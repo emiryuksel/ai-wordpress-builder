@@ -8,6 +8,7 @@ import ProjectsList from "@/app/en/components/projects-list";
 import SiteHeader from "@/app/en/components/site-header";
 import LandingSections from "@/app/en/components/landing-sections";
 import SiteFooter from "@/app/en/components/site-footer";
+import SolverRedirectOverlay from "@/app/en/components/solver-redirect-overlay";
 
 type ProvisionResponse = {
   projectId: string;
@@ -122,6 +123,7 @@ export default function HomePage() {
     "register",
   );
   const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
+  const [solverRedirecting, setSolverRedirecting] = useState(false);
 
   const refreshProjects = useCallback(async () => {
     setProjectsLoading(true);
@@ -230,9 +232,14 @@ export default function HomePage() {
       return;
     }
 
+    // When Solver CMS is selected, play a full-screen transition and then
+    // redirect to withsolver.com after a short beat.
     if (engine === "solver") {
       const target = `${SOLVER_CMS_URL}?prompt=${encodeURIComponent(trimmedPrompt)}`;
-      window.location.href = target;
+      setSolverRedirecting(true);
+      window.setTimeout(() => {
+        window.location.href = target;
+      }, 1600);
       return;
     }
 
@@ -479,6 +486,12 @@ export default function HomePage() {
           setPendingPrompt(null);
         }}
         onSuccess={(context) => void handleAuthSuccess(context)}
+      />
+
+      <SolverRedirectOverlay
+        open={solverRedirecting}
+        title="Redirecting you to Solver CMS"
+        subtitle="We're preparing your AI-powered Solver experience. You'll be there in just a few seconds."
       />
     </>
   );

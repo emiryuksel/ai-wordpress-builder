@@ -595,8 +595,15 @@ footer.site-footer,
 .site-footer-below-section-1,
 .site-footer-below-section-2,
 .site-footer-primary-section-1,
-.site-footer-primary-section-2 {
+.site-footer-primary-section-2,
+#colophon .ast-builder-grid-row-container,
+#colophon .ast-builder-grid-row-container-inner,
+.site-below-footer-wrap .ast-builder-grid-row-container,
+.site-primary-footer-wrap .ast-builder-grid-row-container,
+.site-below-footer-inner-wrap,
+.site-primary-footer-inner-wrap {
   background-color: ${footerBg} !important;
+  background-image: none !important;
   border-top-color: ${footerBg} !important;
 }
 /* Footer'ın kenarlarda (yatay scrollbar payı, container margin'i vb.) beyaz
@@ -618,6 +625,8 @@ footer.site-footer,
   margin-right: 0 !important;
   border-top: 0 !important;
   margin-top: 0 !important;
+  background-color: ${footerBg} !important;
+  background-image: none !important;
 }
 #colophon::before,
 .site-footer::before,
@@ -804,9 +813,31 @@ async function setAstraFooterBackground(
     "background-type": "",
     "background-media": "",
   });
+  // Astra footer background objesi bekleyen anahtarlar (wrap arka planları).
+  const objKeys = JSON.stringify([
+    "footer-bg-obj-responsive",
+    "below-footer-bg-obj-responsive",
+    "hb-footer-bg-obj-responsive",
+  ]);
+  // Astra Footer Builder "items" barlarının (primary + below/copyright) arka
+  // plan rengini tutan anahtarlar DÜZ renk string bekler (responsive obje
+  // değil). Daha önce bunlara background objesi yazıldığı için Astra değeri
+  // yok sayıp copyright barı varsayılan gri renkte bırakıyordu.
+  const colorKeys = JSON.stringify([
+    "footer-desktop-items-below-bg-color-responsive",
+    "footer-desktop-items-primary-bg-color-responsive",
+    "hbb-footer-bg-color-responsive",
+    "hb-footer-bg-color-responsive",
+  ]);
   const php = `$s=get_option("astra-settings",array());if(!is_array($s)){$s=array();}$bg=json_decode(${JSON.stringify(
     bgObject,
-  )},true);$resp=array("desktop"=>$bg,"tablet"=>$bg,"mobile"=>$bg);foreach(array("footer-bg-obj-responsive","below-footer-bg-obj-responsive","hb-footer-bg-obj-responsive","footer-desktop-items-below-bg-color-responsive","footer-desktop-items-primary-bg-color-responsive") as $k){$s[$k]=$resp;}update_option("astra-settings",$s);`;
+  )},true);$bgResp=array("desktop"=>$bg,"tablet"=>$bg,"mobile"=>$bg);foreach(json_decode(${JSON.stringify(
+    objKeys,
+  )},true) as $k){$s[$k]=$bgResp;}$color=${JSON.stringify(
+    footerColor,
+  )};$colorResp=array("desktop"=>$color,"tablet"=>$color,"mobile"=>$color);foreach(json_decode(${JSON.stringify(
+    colorKeys,
+  )},true) as $k){$s[$k]=$colorResp;}update_option("astra-settings",$s);`;
 
   try {
     await runPhp(projectId, php);
