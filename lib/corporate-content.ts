@@ -438,16 +438,20 @@ export function buildCorporatePageHtml(
   const isPremium = theme === "premium";
 
   // Hero bloğu ve ona ait CSS temaya göre değişir; ürün/kanıt/galeri/footer ortak.
+  // Premium: siyah-gold sinematik hero. Tam genişlik görsel, koyu siyah gradient
+  // overlay, gold kicker + serif başlık, gold çerçeveli CTA.
   const heroStyle = isPremium
-    ? `.corp-hero{position:relative;width:100vw;max-width:100vw;margin-left:calc(50% - 50vw);margin-right:calc(50% - 50vw);min-height:min(82vh,640px);display:flex;align-items:flex-end;padding:0;margin-bottom:2.5rem;overflow:hidden;border-radius:0}
+    ? `.corp-hero{position:relative;width:100vw;max-width:100vw;margin-left:calc(50% - 50vw);margin-right:calc(50% - 50vw);min-height:min(86vh,720px);display:flex;align-items:center;padding:0;margin-top:0;margin-bottom:3rem;overflow:hidden;background:#0a0a0b}
 .corp-hero-media{position:absolute;inset:0;z-index:0}
-.corp-hero-img{width:100%;height:100%;object-fit:cover;display:block}
-.corp-hero::after{content:"";position:absolute;inset:0;z-index:1;background:linear-gradient(180deg,rgba(9,13,25,.15) 0%,rgba(9,13,25,.45) 55%,rgba(9,13,25,.82) 100%)}
-.corp-hero-copy{position:relative;z-index:2;width:100%;max-width:760px;padding:0 max(1.5rem,calc(50vw - 600px + 1.5rem)) clamp(2.5rem,6vw,4.5rem);color:#fff}
-.corp-hero h1{font-size:clamp(2.25rem,5vw,4rem);font-weight:800;line-height:1.05;letter-spacing:-.02em;margin:0 0 1.25rem;text-shadow:0 2px 30px rgba(0,0,0,.35)}
-.corp-hero p{color:rgba(255,255,255,.88);margin:0 0 2rem;font-size:clamp(1rem,1.6vw,1.25rem);max-width:34rem;line-height:1.6}
-.corp-cta{display:inline-block;background:var(--corp-primary);color:var(--corp-on-primary);padding:1rem 2.25rem;border-radius:999px;text-decoration:none;font-weight:600;font-size:1.05rem;box-shadow:0 18px 40px rgba(0,0,0,.3);transition:transform .2s}
-.corp-cta:hover{transform:translateY(-2px)}`
+.corp-hero-img{width:100%;height:100%;object-fit:cover;display:block;filter:saturate(.9) contrast(1.02)}
+.corp-hero::before{content:"";position:absolute;inset:0;z-index:1;background:linear-gradient(90deg,rgba(6,6,8,.92) 0%,rgba(6,6,8,.72) 42%,rgba(6,6,8,.28) 72%,rgba(6,6,8,.12) 100%)}
+.corp-hero::after{content:"";position:absolute;inset:0;z-index:1;background:linear-gradient(180deg,rgba(6,6,8,.35) 0%,rgba(6,6,8,0) 35%,rgba(6,6,8,.55) 100%)}
+.corp-hero-copy{position:relative;z-index:2;width:100%;max-width:640px;padding:clamp(3rem,7vw,5rem) max(1.5rem,calc(50vw - 600px + 1.5rem));color:#f5f0e6}
+.corp-hero-copy::before{content:"";display:block;width:3.5rem;height:2px;background:linear-gradient(90deg,#e7c877,#c9a24b);margin-bottom:1.75rem;box-shadow:0 0 24px rgba(201,162,75,.5)}
+.corp-hero h1{font-family:Georgia,"Times New Roman",serif;font-size:clamp(2.4rem,5.2vw,4.25rem);font-weight:700;line-height:1.06;letter-spacing:-.015em;margin:0 0 1.35rem;color:#faf6ee;text-shadow:0 2px 40px rgba(0,0,0,.55)}
+.corp-hero p{color:rgba(245,240,230,.82);margin:0 0 2.25rem;font-size:clamp(1.02rem,1.6vw,1.2rem);max-width:34rem;line-height:1.7}
+.corp-cta{display:inline-flex;align-items:center;gap:.6rem;background:linear-gradient(180deg,#e7c877 0%,#c9a24b 100%);color:#1a1408;padding:1rem 2.4rem;border-radius:2px;text-decoration:none;font-weight:700;font-size:1rem;letter-spacing:.03em;box-shadow:0 18px 44px rgba(201,162,75,.28),inset 0 1px 0 rgba(255,255,255,.35);transition:transform .25s,box-shadow .25s}
+.corp-cta:hover{transform:translateY(-2px);box-shadow:0 24px 54px rgba(201,162,75,.4),inset 0 1px 0 rgba(255,255,255,.35)}`
     : `.corp-hero{display:grid;grid-template-columns:1.1fr .9fr;gap:2.5rem;align-items:center;width:100vw;max-width:100vw;margin-left:calc(50% - 50vw);margin-right:calc(50% - 50vw);padding:3.5rem max(1.25rem,calc(50vw - 600px + 1.25rem));box-sizing:border-box;background:linear-gradient(105deg,#f1f5f9 0%,#e8eef6 45%,#dde7f0 100%);border-radius:0;border-bottom:1px solid #cbd5e1;margin-bottom:2.5rem;box-shadow:inset 0 -1px 0 rgba(15,23,42,.05)}
 .corp-hero h1{font-size:2.5rem;font-weight:700;line-height:1.2;margin:0 0 1rem}.corp-hero p{color:#475569;margin:0 0 1.5rem;font-size:1.05rem}
 .corp-cta{display:inline-block;background:var(--corp-primary);color:var(--corp-on-primary);padding:.85rem 1.75rem;border-radius:8px;text-decoration:none;font-weight:600}
